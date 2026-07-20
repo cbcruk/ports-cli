@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process'
 
 export type Row = {
-  port: number
+  port: number // primary (lowest) listening port
+  ports: number[] // every port this pid listens on, ascending
   pid: number
   command: string
   framework: string
@@ -73,6 +74,14 @@ const SYSTEM_RULES: RegExp[] = [
 
 export function isSystemProcess(command: string): boolean {
   return SYSTEM_RULES.some((re) => re.test(command))
+}
+
+// IANA ephemeral range. workerd/Vite open transient control sockets here; a process
+// listening *only* on such ports is plumbing, not something you'd browse to.
+export const EPHEMERAL_MIN = 49152
+
+export function isEphemeralOnly(ports: number[]): boolean {
+  return ports.length > 0 && ports.every((p) => p >= EPHEMERAL_MIN)
 }
 
 // lsof -F pcn  →  pid → { command, ports }
@@ -161,18 +170,19 @@ export function createCollector(exec: Exec = defaultExec) {
       const dt = p ? (wallMs - p.wallMs) / 1000 : 0
       const cpu = p && dt > 0 ? Math.max(0, ((st.cpuSecs - p.cpuSecs) / dt) * 100) : null
 
-      for (const port of ports) {
-        rows.push({
-          port,
-          pid,
-          command: cmd,
-          framework: detectFramework(cmd),
-          project: cwdCache.get(pid) ?? '',
-          cpu,
-          memMB: st.rss / 1024,
-          uptimeSecs: st.etime,
-        })
-      }
+      const sorted = [...ports].sort((a, b) => a - b)
+      if (!sorted.length) continue
+      rows.push({
+        port: sorted[0],
+        ports: sorted,
+        pid,
+        command: cmd,
+        framework: detectFramework(cmd),
+        project: cwdCache.get(pid) ?? '',
+        cpu,
+        memMB: st.rss / 1024,
+        uptimeSecs: st.etime,
+      })
     }
     prev = next
     return rows.sort((a, b) => a.port - b.port)

@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import {
   parseClock, detectFramework, parseListeners, parsePs, parseCwd,
-  createCollector, fmtUptime, isSystemProcess, type Exec,
+  createCollector, fmtUptime, isSystemProcess, isEphemeralOnly, type Exec,
 } from './core.ts'
 
 let pass = 0
@@ -36,6 +36,11 @@ ok('sys GUI app', isSystemProcess('/Applications/Spotify.app/Contents/MacOS/Spot
 ok('sys app support', isSystemProcess('/Users/e/Library/Application Support/Figma/FigmaAgent.app/Contents/MacOS/figma_agent'))
 ok('dev server not system', !isSystemProcess('/Users/e/proj/web/node_modules/.bin/next dev'))
 ok('homebrew not system', !isSystemProcess('/opt/homebrew/bin/python3.11 -m http.server 8000'))
+
+// ── isEphemeralOnly ──
+ok('ephemeral only', isEphemeralOnly([55725, 57694]))
+ok('has a real port', !isEphemeralOnly([9229, 55725]))
+ok('empty is not ephemeral', !isEphemeralOnly([]))
 
 // ── parseListeners ── (macOS lsof -F pcn: IPv4+IPv6 dedupe, wildcard)
 const LSOF = `p52341
@@ -83,7 +88,8 @@ ok('uptime h', fmtUptime(19391) === '5h23m')
 const mkExec = (cpu1: string, cpu2: string): Exec => {
   let tick = 0
   return async (cmd, args) => {
-    if (cmd === 'lsof' && args.includes('-sTCP:LISTEN')) return 'p52341\ncnode\nn127.0.0.1:3000\n'
+    if (cmd === 'lsof' && args.includes('-sTCP:LISTEN'))
+      return 'p52341\ncnode\nn127.0.0.1:55725\nn127.0.0.1:3000\nn[::1]:3000\n'
     if (cmd === 'lsof') return 'p52341\nfcwd\nn/Users/e/web\n'
     // ps: bump cputime on 2nd tick
     tick++
@@ -92,7 +98,10 @@ const mkExec = (cpu1: string, cpu2: string): Exec => {
 }
 const col = createCollector(mkExec('0:04.00', '0:04.50'))
 const r1 = await col.collect()
-ok('tick1 one row', r1.length === 1 && r1[0].port === 3000)
+// one row per pid, not per port; primary port is the lowest
+ok('tick1 one row per pid', r1.length === 1)
+ok('tick1 primary port', r1[0].port === 3000)
+ok('tick1 all ports', r1[0].ports.join() === '3000,55725')
 ok('tick1 cpu null', r1[0].cpu === null)
 ok('tick1 framework', r1[0].framework === 'Next.js')
 ok('tick1 project', r1[0].project === 'web')

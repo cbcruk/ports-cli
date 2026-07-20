@@ -34,7 +34,7 @@ async function killPorts(ports: number[], force: boolean) {
   }
   const rows = await createCollector().collect()
   for (const p of ports) {
-    const hit = rows.find((r) => r.port === p)
+    const hit = rows.find((r) => r.ports.includes(p))
     if (!hit) { console.log(`:${p} not found`); continue }
     const ok = killPid(hit.pid, force)
     console.log(ok ? `${force ? 'SIGKILL' : 'SIGTERM'} → :${p} (pid ${hit.pid})` : `failed :${p}`)

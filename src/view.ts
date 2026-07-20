@@ -1,4 +1,4 @@
-import { type Row, fmtUptime, fmtCpu, isSystemProcess } from './core.ts'
+import { type Row, fmtUptime, fmtCpu, isSystemProcess, isEphemeralOnly } from './core.ts'
 
 export type SortKey = 'port' | 'cpu' | 'mem' | 'uptime'
 export const SORT_KEYS: SortKey[] = ['port', 'cpu', 'mem', 'uptime']
@@ -21,7 +21,7 @@ export function filterRows(rows: Row[], q: string): Row[] {
   const n = q.toLowerCase()
   return rows.filter(
     (r) =>
-      String(r.port).includes(n) ||
+      r.ports.some((p) => String(p).includes(n)) ||
       r.framework.toLowerCase().includes(n) ||
       r.project.toLowerCase().includes(n) ||
       r.command.toLowerCase().includes(n),
@@ -29,13 +29,19 @@ export function filterRows(rows: Row[], q: string): Row[] {
 }
 
 export function filterSystem(rows: Row[], showAll: boolean): Row[] {
-  return showAll ? rows : rows.filter((r) => !isSystemProcess(r.command))
+  if (showAll) return rows
+  return rows.filter((r) => !isSystemProcess(r.command) && !isEphemeralOnly(r.ports))
+}
+
+// "3000" · "9229 +2" when the process holds extra ports
+export function fmtPorts(r: Row): string {
+  return r.ports.length > 1 ? `${r.port} +${r.ports.length - 1}` : String(r.port)
 }
 
 const pad = (s: string, w: number) => (s.length > w ? s.slice(0, w - 1) + '…' : s.padEnd(w))
 const padL = (s: string, w: number) => (s.length > w ? s.slice(0, w) : s.padStart(w))
 
-export const COLS = { port: 5, fw: 9, project: 16, pid: 7, cpu: 6, mem: 8, up: 7 }
+export const COLS = { port: 9, fw: 9, project: 16, pid: 7, cpu: 6, mem: 8, up: 7 }
 
 export function headerCells(): string[] {
   return [
@@ -48,7 +54,7 @@ export function headerCells(): string[] {
 // One row → aligned cells (the Ink layer colors them; strings here are testable)
 export function rowCells(r: Row): string[] {
   return [
-    pad(String(r.port), COLS.port),
+    pad(fmtPorts(r), COLS.port),
     pad(r.framework, COLS.fw),
     pad(r.project || '—', COLS.project),
     padL(String(r.pid), COLS.pid),

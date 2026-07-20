@@ -82,7 +82,7 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
         const c = rowCells(r)
         const isSel = i === sel
         return (
-          <Text key={`${r.pid}:${r.port}`} inverse={isSel} wrap="truncate-end">
+          <Text key={r.pid} inverse={isSel} wrap="truncate-end">
             {isSel ? '▸ ' : '  '}
             {c[0]} {' '}
             <Text color={isSel ? undefined : FW_COLOR[r.framework] ?? 'white'}>{c[1]}</Text>{' '}

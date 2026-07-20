@@ -1,14 +1,17 @@
 import assert from 'node:assert'
 import type { Row } from './core.ts'
-import { sortRows, filterRows, filterSystem, rowCells, headerCells, formatLine, COLS } from './view.ts'
+import { sortRows, filterRows, filterSystem, fmtPorts, rowCells, headerCells, formatLine, COLS } from './view.ts'
 
 let pass = 0
 const ok = (n: string, c: boolean) => { assert(c, n); pass++ }
 
-const mk = (o: Partial<Row>): Row => ({
-  port: 3000, pid: 1, command: 'node', framework: 'Node', project: 'p',
-  cpu: 0, memMB: 0, uptimeSecs: 0, ...o,
-})
+const mk = (o: Partial<Row>): Row => {
+  const r = {
+    port: 3000, pid: 1, command: 'node', framework: 'Node', project: 'p',
+    cpu: 0, memMB: 0, uptimeSecs: 0, ...o,
+  }
+  return { ...r, ports: o.ports ?? [r.port] }
+}
 
 const rows = [
   mk({ port: 8000, cpu: 5, memMB: 40, uptimeSecs: 100, framework: 'Python', project: 'api' }),
@@ -44,8 +47,18 @@ ok('line marks truncation', long.endsWith('…'))
 ok('short line untouched', formatLine(['a', 'b'], 80) === 'a b')
 
 // ── filterSystem ──
-const sysRows = [mk({ port: 3000 }), mk({ port: 7000, command: '/Applications/Spotify.app/Contents/MacOS/Spotify' })]
+const sysRows = [
+  mk({ port: 3000 }),
+  mk({ port: 7000, command: '/Applications/Spotify.app/Contents/MacOS/Spotify' }),
+  mk({ port: 55730, ports: [55730, 57694] }), // workerd control sockets only
+]
 ok('system hidden by default', filterSystem(sysRows, false).map((r) => r.port).join() === '3000')
-ok('--all keeps everything', filterSystem(sysRows, true).length === 2)
+ok('--all keeps everything', filterSystem(sysRows, true).length === 3)
+
+// ── fmtPorts ── (one row per pid, extra ports summarised)
+ok('single port plain', fmtPorts(mk({ port: 3000 })) === '3000')
+ok('multi port suffix', fmtPorts(mk({ port: 9229, ports: [9229, 55725, 55727] })) === '9229 +2')
+ok('port cell width', rowCells(mk({ port: 9229, ports: [9229, 1, 2] }))[0].length === COLS.port)
+ok('filter matches secondary port', filterRows([mk({ port: 9229, ports: [9229, 55725] })], '55725').length === 1)
 
 console.log(`\n✓ ${pass} assertions passed`)

@@ -17,7 +17,7 @@ ports open 3000       # open http://localhost:3000
 pnpm install
 pnpm build             # bundles to dist/index.js (the `ports` bin)
 pnpm watch             # or: npx tsx src/index.tsx -w
-pnpm test              # parser + view logic (40 + 20 assertions)
+pnpm test              # parser + view logic (45 + 24 assertions)
 pnpm typecheck
 ```
 
@@ -31,12 +31,15 @@ pnpm typecheck
 - **Enrich**: one batched `ps -o pid=,rss=,etime=,time=,command=` → mem, uptime, cumulative CPU time, full argv. `cwd` via `lsof -d cwd` (cached per pid) for the project name.
 - **Live CPU**: `ps` gives *lifetime-average* %cpu, which is useless for a live view. Instead we diff cumulative CPU-time between ticks over wall-clock — the same delta top does. First frame shows `·` (no baseline yet).
 - **Framework**: regex over the full argv (Next before bare Node, etc.). Next.js renames its process to `next-server (v15.3.6)` once booted, so both the argv and post-rename forms are matched.
-- **Noise filter**: most localhost listeners are OS daemons and GUI apps (ControlCenter, Spotify, VSCode helpers). Anything under `/System`, `/usr/sbin`, `/Library`, or inside a `.app` bundle is hidden unless `--all`.
+- **One row per process**: a pid listening on several ports collapses to a single row keyed on its lowest port, rendered `9229 +2`. `kill`/`filter` still match any of the ports.
+- **Noise filter** (all lifted by `--all`):
+  - OS daemons and GUI apps — anything under `/System`, `/usr/sbin`, `/Library`, or inside a `.app` bundle (ControlCenter, Spotify, VSCode helpers).
+  - Processes listening *only* in the ephemeral range (≥ 49152) — workerd and Vite control sockets, never something you'd browse to.
 
 ## Notes / limits
 
 - macOS 14+ target. Verified end-to-end on macOS (Darwin 25) — `lsof`/`ps` parsing and the live path both.
-- Some tools open transient high-numbered control sockets (workerd, Vite HMR); these show as extra rows since they are genuine listeners.
+- `--json` emits one object per process with a `ports` array; `port` is the primary (lowest) one.
 - "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of `open <url>`.
 - Native upgrade path: replace the lsof/ps subprocesses with a napi-rs `libproc` binding (`proc_listpids` + `proc_pidfdinfo`) — zero subprocess spawns per tick.
 
