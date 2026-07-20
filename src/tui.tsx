@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Text, useApp, useInput, useStdin } from 'ink'
-import { createCollector, killPid, openPort, type Row } from './core.ts'
-import { sortRows, filterRows, filterSystem, rowCells, headerCells, SORT_KEYS, FW_COLOR, type SortKey } from './view.ts'
+import { createCollector, killPid, fmtKill, openPort, type Row } from './core.ts'
+import { sortRows, filterRows, filterSystem, resolveSelection, rowCells, headerCells, SORT_KEYS, FW_COLOR, type SortKey } from './view.ts'
 
 type Collect = () => Promise<Row[]>
 
@@ -14,9 +14,13 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
   if (!collectRef.current) collectRef.current = createCollector().collect
   const [rows, setRows] = useState<Row[]>([])
   const [sortKey, setSortKey] = useState<SortKey>('port')
-  const [selected, setSelected] = useState(0)
+  // Anchored on pid, not index: the list re-sorts every tick (CPU order is volatile)
+  // and an index would silently drift onto a different process before you hit `k`.
+  const [selectedPid, setSelectedPid] = useState<number | null>(null)
+  const lastIdx = useRef(0)
   const [filter, setFilter] = useState('')
   const [typing, setTyping] = useState(false)
+  const [pending, setPending] = useState<{ pid: number; port: number; force: boolean } | null>(null)
   const [status, setStatus] = useState('')
   const [err, setErr] = useState('')
 
@@ -36,7 +40,10 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
   }, [intervalMs])
 
   const view = filterRows(sortRows(filterSystem(rows, showAll), sortKey), filter)
-  const sel = Math.min(selected, Math.max(0, view.length - 1))
+
+  const sel = resolveSelection(view, selectedPid, lastIdx.current)
+  lastIdx.current = sel
+  const target: Row | undefined = view[sel]
 
   useInput((input, key) => {
     if (typing) {
@@ -46,21 +53,29 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
       else if (input && !key.ctrl && !key.meta) setFilter((f) => f + input)
       return
     }
+    // A kill is armed and waiting on y/n — resolve it before anything else.
+    if (pending) {
+      if (input === 'y') {
+        const { pid, port, force } = pending
+        setStatus(`${force ? 'SIGKILL' : 'SIGTERM'} → :${port} …`)
+        void killPid(pid, force).then((o) => setStatus(fmtKill(o, port, pid, force)))
+      } else {
+        setStatus('cancelled')
+      }
+      setPending(null)
+      return
+    }
+
     if (input === 'q' || (key.ctrl && input === 'c')) return exit()
-    if (key.upArrow) setSelected((s) => Math.max(0, s - 1))
-    else if (key.downArrow) setSelected((s) => Math.min(view.length - 1, s + 1))
+    if (key.upArrow) setSelectedPid(view[Math.max(0, sel - 1)]?.pid ?? null)
+    else if (key.downArrow) setSelectedPid(view[Math.min(view.length - 1, sel + 1)]?.pid ?? null)
     else if (input === 's') setSortKey((k) => SORT_KEYS[(SORT_KEYS.indexOf(k) + 1) % SORT_KEYS.length])
     else if (input === '/') { setTyping(true); setFilter('') }
     else if (input === 'k' || input === 'x') {
-      const t = view[sel]
-      if (t) {
-        const force = input === 'x'
-        const done = killPid(t.pid, force)
-        setStatus(done ? `${force ? 'SIGKILL' : 'SIGTERM'} → :${t.port} (pid ${t.pid})` : `failed: pid ${t.pid}`)
-      }
+      // Arm against the pid resolved *now*, so a tick landing mid-confirm can't retarget it.
+      if (target) setPending({ pid: target.pid, port: target.port, force: input === 'x' })
     } else if (input === 'o') {
-      const t = view[sel]
-      if (t) { openPort(t.port); setStatus(`open http://localhost:${t.port}`) }
+      if (target) { openPort(target.port); setStatus(`open http://localhost:${target.port}`) }
     }
   }, { isActive: Boolean(isRawModeSupported) })
 
@@ -92,13 +107,19 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
       })}
 
       <Box marginTop={1}>
-        <Text color="gray">
-          {typing
-            ? `filter: ${filter}▏  (enter apply · esc clear)`
-            : '↑↓ select · k kill · x force · o open · s sort · / filter · q quit'}
-        </Text>
+        {pending ? (
+          <Text color="red" bold>
+            {pending.force ? 'SIGKILL' : 'SIGTERM'} :{pending.port} (pid {pending.pid})? y/n
+          </Text>
+        ) : (
+          <Text color="gray">
+            {typing
+              ? `filter: ${filter}▏  (enter apply · esc clear)`
+              : '↑↓ select · k kill · x force · o open · s sort · / filter · q quit'}
+          </Text>
+        )}
       </Box>
-      {status && !typing && <Text color="yellow">  {status}</Text>}
+      {status && !typing && !pending && <Text color="yellow">  {status}</Text>}
     </Box>
   )
 }

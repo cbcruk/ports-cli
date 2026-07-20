@@ -33,6 +33,14 @@ export function filterSystem(rows: Row[], showAll: boolean): Row[] {
   return rows.filter((r) => !isSystemProcess(r.command) && !isEphemeralOnly(r.ports))
 }
 
+// Selection follows the pid across re-sorts. If it's gone (killed, filtered out),
+// hold the previous slot instead of snapping to the top.
+export function resolveSelection(rows: Row[], pid: number | null, lastIdx: number): number {
+  if (!rows.length) return 0
+  const i = rows.findIndex((r) => r.pid === pid)
+  return i >= 0 ? i : Math.min(Math.max(0, lastIdx), rows.length - 1)
+}
+
 // "3000" · "9229 +2" when the process holds extra ports
 export function fmtPorts(r: Row): string {
   return r.ports.length > 1 ? `${r.port} +${r.ports.length - 1}` : String(r.port)

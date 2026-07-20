@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import React from 'react'
 import { render } from 'ink'
-import { createCollector, killPid, openPort } from './core.ts'
+import { createCollector, killPid, fmtKill, openPort } from './core.ts'
 import { sortRows, filterSystem, rowCells, headerCells, formatLine } from './view.ts'
 import { App } from './tui.tsx'
 
@@ -35,9 +35,10 @@ async function killPorts(ports: number[], force: boolean) {
   const rows = await createCollector().collect()
   for (const p of ports) {
     const hit = rows.find((r) => r.ports.includes(p))
-    if (!hit) { console.log(`:${p} not found`); continue }
-    const ok = killPid(hit.pid, force)
-    console.log(ok ? `${force ? 'SIGKILL' : 'SIGTERM'} → :${p} (pid ${hit.pid})` : `failed :${p}`)
+    if (!hit) { console.log(`:${p} not found`); process.exitCode = 1; continue }
+    const outcome = await killPid(hit.pid, force)
+    console.log(fmtKill(outcome, p, hit.pid, force))
+    if (!outcome.exited) process.exitCode = 1
   }
 }
 

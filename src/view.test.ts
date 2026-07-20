@@ -1,6 +1,6 @@
 import assert from 'node:assert'
 import type { Row } from './core.ts'
-import { sortRows, filterRows, filterSystem, fmtPorts, rowCells, headerCells, formatLine, COLS } from './view.ts'
+import { sortRows, filterRows, filterSystem, fmtPorts, resolveSelection, rowCells, headerCells, formatLine, COLS } from './view.ts'
 
 let pass = 0
 const ok = (n: string, c: boolean) => { assert(c, n); pass++ }
@@ -60,5 +60,22 @@ ok('single port plain', fmtPorts(mk({ port: 3000 })) === '3000')
 ok('multi port suffix', fmtPorts(mk({ port: 9229, ports: [9229, 55725, 55727] })) === '9229 +2')
 ok('port cell width', rowCells(mk({ port: 9229, ports: [9229, 1, 2] }))[0].length === COLS.port)
 ok('filter matches secondary port', filterRows([mk({ port: 9229, ports: [9229, 55725] })], '55725').length === 1)
+
+// ── resolveSelection ── (the bug: index-based cursor drifted onto another process)
+const a = mk({ port: 3000, pid: 10 })
+const b = mk({ port: 5173, pid: 20 })
+const c = mk({ port: 8000, pid: 30 })
+
+ok('finds pid', resolveSelection([a, b, c], 20, 0) === 1)
+// same list re-sorted by a volatile key — cursor must track the process, not the slot
+ok('survives reorder', resolveSelection([c, b, a], 20, 0) === 1)
+ok('survives reorder to a new slot', resolveSelection([b, c, a], 20, 2) === 0)
+// a row above the cursor disappears; pid still wins over the stale index
+ok('survives removal above', resolveSelection([b, c], 30, 2) === 1)
+// the selected process itself is gone — hold the slot, do not jump to the top
+ok('dead pid holds slot', resolveSelection([a, b], 99, 1) === 1)
+ok('dead pid clamps to end', resolveSelection([a], 99, 5) === 0)
+ok('empty list is 0', resolveSelection([], 10, 3) === 0)
+ok('null pid uses lastIdx', resolveSelection([a, b, c], null, 2) === 2)
 
 console.log(`\n✓ ${pass} assertions passed`)

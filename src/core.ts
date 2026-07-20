@@ -193,12 +193,64 @@ export function createCollector(exec: Exec = defaultExec) {
 
 // ── actions ─────────────────────────────────────────────────────────────────
 
-export function killPid(pid: number, force = false): boolean {
+// Injectable so the wait loop can be tested without real processes.
+export type Signal = (pid: number, sig: NodeJS.Signals | 0) => void
+const defaultSignal: Signal = (pid, sig) => void process.kill(pid, sig)
+
+export type KillOutcome = {
+  sent: boolean
+  exited: boolean
+  reason?: 'not-permitted' | 'no-such-process' | 'ignored' | 'unknown'
+}
+
+// EPERM means the process exists but isn't ours — still alive.
+export function isAlive(pid: number, signal: Signal = defaultSignal): boolean {
   try {
-    process.kill(pid, force ? 'SIGKILL' : 'SIGTERM')
+    signal(pid, 0)
     return true
-  } catch {
-    return false
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+const errReason = (e: unknown): KillOutcome['reason'] => {
+  const code = (e as NodeJS.ErrnoException).code
+  if (code === 'EPERM') return 'not-permitted'
+  if (code === 'ESRCH') return 'no-such-process'
+  return 'unknown'
+}
+
+// Sending a signal only means it was delivered — SIGTERM handlers may ignore it.
+// Poll until the pid is actually gone so callers can report the truth.
+export async function killPid(
+  pid: number,
+  force = false,
+  opts: { waitMs?: number; pollMs?: number; signal?: Signal } = {},
+): Promise<KillOutcome> {
+  const { waitMs = 2000, pollMs = 50, signal = defaultSignal } = opts
+  try {
+    signal(pid, force ? 'SIGKILL' : 'SIGTERM')
+  } catch (e) {
+    return { sent: false, exited: false, reason: errReason(e) }
+  }
+  for (let waited = 0; waited < waitMs; waited += pollMs) {
+    if (!isAlive(pid, signal)) return { sent: true, exited: true }
+    await new Promise((r) => setTimeout(r, pollMs))
+  }
+  if (!isAlive(pid, signal)) return { sent: true, exited: true }
+  return { sent: true, exited: false, reason: 'ignored' }
+}
+
+export function fmtKill(o: KillOutcome, port: number, pid: number, force: boolean): string {
+  if (o.exited) return `${force ? 'SIGKILL' : 'SIGTERM'} → :${port} (pid ${pid}) exited`
+  switch (o.reason) {
+    case 'not-permitted': return `:${port} (pid ${pid}) not yours — try sudo`
+    case 'no-such-process': return `:${port} already gone`
+    case 'ignored':
+      return force
+        ? `:${port} (pid ${pid}) survived SIGKILL — stuck in the kernel`
+        : `:${port} (pid ${pid}) ignored SIGTERM — force with -9`
+    default: return `:${port} (pid ${pid}) failed`
   }
 }
 

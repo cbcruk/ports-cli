@@ -17,13 +17,17 @@ ports open 3000       # open http://localhost:3000
 pnpm install
 pnpm build             # bundles to dist/index.js (the `ports` bin)
 pnpm watch             # or: npx tsx src/index.tsx -w
-pnpm test              # parser + view logic (45 + 24 assertions)
+pnpm test              # parser + view logic (57 + 32 assertions)
 pnpm typecheck
 ```
 
 ## TUI keys
 
 `↑↓` select · `k` SIGTERM · `x` SIGKILL · `o` open · `s` cycle sort · `/` filter · `q` quit
+
+`k`/`x` arm a confirmation (`y`/`n`) against the pid resolved at keypress — a refresh landing
+mid-confirm cannot retarget it. Selection is anchored on pid, so the cursor follows a process
+across re-sorts instead of drifting onto its neighbour.
 
 ## How it works
 
@@ -40,6 +44,9 @@ pnpm typecheck
 
 - macOS 14+ target. Verified end-to-end on macOS (Darwin 25) — `lsof`/`ps` parsing and the live path both.
 - `--json` emits one object per process with a `ports` array; `port` is the primary (lowest) one.
+- `kill` polls until the pid is actually gone rather than trusting signal delivery, so a process
+  that ignores SIGTERM is reported as such and exits non-zero. `kill` exits 1 for any named port
+  it did not manage to kill (not found, not permitted, ignored).
 - "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of `open <url>`.
 - Native upgrade path: replace the lsof/ps subprocesses with a napi-rs `libproc` binding (`proc_listpids` + `proc_pidfdinfo`) — zero subprocess spawns per tick.
 
