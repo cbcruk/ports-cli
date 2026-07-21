@@ -1,7 +1,7 @@
 {
   "name": "ports",
   "version": "1.0.0",
-  "description": "CLI/TUI for localhost dev servers",
+  "description": "TUI for localhost dev servers",
   "bin": {
     "ports": "./dist/index.js"
   },
@@ -14,8 +14,7 @@
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
     "test": "tsx src/core.test.ts && tsx src/view.test.ts",
-    "dev": "tsx src/index.tsx",
-    "watch": "tsx src/index.tsx -w"
+    "dev": "tsx src/index.tsx"
   },
   "keywords": [
     "ports",

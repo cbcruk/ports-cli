@@ -1,31 +1,26 @@
-# ports — CLI/TUI for localhost dev servers
+# ports — TUI for localhost dev servers
 
-A CLI reimagining of the Ports.app menu-bar tool. One shared data layer, several views.
+A TUI reimagining of the Ports.app menu-bar tool. One shared data layer, one live view.
 
 ```
-$ ports
-PORT      FRAMEWORK PROJECT              PID   CPU%   MEM MB      UP COMMAND
-3000      Next.js   weather            70244    1.2       15    2d8h next-server (v15.3.6)
-3333      Vite      rss-extensions     24546    0.0       22  11d23h /Users/e/.vite-plus/js_runtime/node/…
-9229 +2   Workers   github-traffic-…   61323    0.4       18   4d23h /Users/e/GitHub/github-traffic-dash…
+🔌 ports  3 listening · sort:port
+  PORT      FRAMEWORK PROJECT              PID   CPU%   MEM MB      UP COMMAND
+▸ 3000      Next.js   weather            70244    1.2       15    2d8h next-server (v15.3.6)
+  3333      Vite      rss-extensions     24546    0.0       22  11d23h /Users/e/.vite-plus/js_runtime/node/…
+  9229 +2   Workers   github-traffic-…   61323    0.4       18   4d23h /Users/e/GitHub/github-traffic-dash…
+  ↑↓ select · k kill · x force · o open · s sort · / filter · q quit
 ```
 
 ## Usage
 
 ```
-ports                 # snapshot table (double-samples for a live CPU %)
-ports --json          # machine output, pipe into jq
-ports -w              # live TUI (Ink)
+ports                 # live TUI (Ink)
 ports -a / --all      # include OS daemons, GUI apps, ephemeral-only listeners
-ports kill 3000 4000  # kill by port — SIGTERM (add -9 for SIGKILL)
-ports open 3000       # open http://localhost:3000
+ports -h / --help     # usage and keys
 ```
 
-`kill` exits 1 for any port it did not manage to kill, so it composes:
-
-```bash
-ports kill 3000 || echo "nothing was listening"
-```
+`ports` is TUI-only — enumerate, kill, and open all live inside the one view.
+It needs an interactive terminal; run in a TTY (it exits 1 otherwise).
 
 ## TUI keys
 
@@ -39,7 +34,7 @@ across re-sorts instead of drifting onto its neighbour.
 
 ```bash
 pnpm install
-pnpm watch             # live TUI against your real machine
+pnpm dev               # live TUI against your real machine
 pnpm test              # parser + view logic, no processes harmed
 pnpm typecheck
 ```
@@ -57,26 +52,6 @@ pnpm typecheck
   - Processes listening *only* in the ephemeral range (≥ 49152) — workerd and Vite control sockets, never something you'd browse to.
 
   On a typical machine this is the difference between 54 rows and 4.
-
-## JSON
-
-One object per process. `port` is the primary (lowest); `ports` holds the whole group.
-
-```json
-{
-  "port": 9229,
-  "ports": [9229, 55725, 55727],
-  "pid": 61323,
-  "command": "…/workerd serve --socket-addr=entry=127.0.0.1:9229",
-  "framework": "Workers",
-  "project": "github-traffic-dashboard",
-  "cpu": 0.4,
-  "memMB": 18,
-  "uptimeSecs": 428400
-}
-```
-
-`cpu` is `null` only when there is no baseline to diff against — every other path double-samples.
 
 ## Packaging
 
