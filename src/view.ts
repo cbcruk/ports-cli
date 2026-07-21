@@ -3,6 +3,17 @@ import { type Row, fmtUptime, fmtCpu, isSystemProcess, isEphemeralOnly } from '.
 export type SortKey = 'port' | 'cpu' | 'mem' | 'uptime'
 export const SORT_KEYS: SortKey[] = ['port', 'cpu', 'mem', 'uptime']
 
+/**
+ * Returns a new array of rows sorted by the given key.
+ *
+ * `port` sorts ascending; every other key sorts descending (busiest first),
+ * with `null` CPU treated as lowest so idle-unknown rows sink to the bottom.
+ * The input is not mutated.
+ *
+ * @param rows rows to sort
+ * @param key column to sort by
+ * @returns a sorted copy of `rows`
+ */
 export function sortRows(rows: Row[], key: SortKey): Row[] {
   const by = [...rows]
   by.sort((a, b) => {
@@ -16,6 +27,14 @@ export function sortRows(rows: Row[], key: SortKey): Row[] {
   return by
 }
 
+/**
+ * Filters rows by a free-text query, case-insensitively matching against any
+ * listening port, the framework, the project, or the full command.
+ *
+ * @param rows rows to filter
+ * @param q search text; an empty string passes every row through unchanged
+ * @returns the matching rows
+ */
 export function filterRows(rows: Row[], q: string): Row[] {
   if (!q) return rows
   const n = q.toLowerCase()
@@ -28,29 +47,62 @@ export function filterRows(rows: Row[], q: string): Row[] {
   )
 }
 
+/**
+ * Drops OS daemons, GUI apps, and ephemeral-only listeners so the view shows
+ * just real dev servers.
+ *
+ * @param rows rows to filter
+ * @param showAll when `true`, disables filtering and returns everything
+ * @returns the visible rows
+ */
 export function filterSystem(rows: Row[], showAll: boolean): Row[] {
   if (showAll) return rows
   return rows.filter((r) => !isSystemProcess(r.command) && !isEphemeralOnly(r.ports))
 }
 
-// Selection follows the pid across re-sorts. If it's gone (killed, filtered out),
-// hold the previous slot instead of snapping to the top.
+/**
+ * Resolves which row index the cursor should sit on, anchoring selection to a
+ * pid rather than a slot.
+ *
+ * The list re-sorts every tick on volatile keys, so tracking by pid keeps the
+ * cursor on the same process across reorders. If that pid is gone (killed or
+ * filtered out), it holds the previous slot (clamped) instead of snapping to
+ * the top.
+ *
+ * @param rows current visible rows
+ * @param pid the selected process id, or `null` to fall back to `lastIdx`
+ * @param lastIdx index held on the previous frame
+ * @returns the index to select (`0` when `rows` is empty)
+ */
 export function resolveSelection(rows: Row[], pid: number | null, lastIdx: number): number {
   if (!rows.length) return 0
   const i = rows.findIndex((r) => r.pid === pid)
   return i >= 0 ? i : Math.min(Math.max(0, lastIdx), rows.length - 1)
 }
 
-// "3000" · "9229 +2" when the process holds extra ports
+/**
+ * Formats a row's port cell, summarising a multi-port process as
+ * `"<primary> +<n>"` (e.g. `"9229 +2"`) and a single port as its number.
+ *
+ * @param r the row
+ * @returns the port-cell text
+ */
 export function fmtPorts(r: Row): string {
   return r.ports.length > 1 ? `${r.port} +${r.ports.length - 1}` : String(r.port)
 }
 
+/** Left-aligns `s` to width `w`, truncating with an ellipsis when it overflows. */
 const pad = (s: string, w: number) => (s.length > w ? s.slice(0, w - 1) + '…' : s.padEnd(w))
+/** Right-aligns `s` to width `w`, hard-truncating (no ellipsis) when it overflows. */
 const padL = (s: string, w: number) => (s.length > w ? s.slice(0, w) : s.padStart(w))
 
 export const COLS = { port: 9, fw: 9, project: 16, pid: 7, cpu: 6, mem: 8, up: 7 }
 
+/**
+ * Builds the aligned header cells matching the column widths in {@link COLS}.
+ *
+ * @returns one padded string per column, in row order
+ */
 export function headerCells(): string[] {
   return [
     pad('PORT', COLS.port), pad('FRAMEWORK', COLS.fw), pad('PROJECT', COLS.project),
@@ -59,7 +111,16 @@ export function headerCells(): string[] {
   ]
 }
 
-// One row → aligned cells (the Ink layer colors them; strings here are testable)
+/**
+ * Renders one row into aligned, fixed-width cells.
+ *
+ * The strings stay plain (and thus unit-testable) — the Ink layer applies
+ * color. The trailing command cell is left untruncated; {@link formatLine} or
+ * the terminal clips it.
+ *
+ * @param r the row to render
+ * @returns one padded string per column, in header order
+ */
 export function rowCells(r: Row): string[] {
   return [
     pad(fmtPorts(r), COLS.port),
@@ -73,7 +134,14 @@ export function rowCells(r: Row): string[] {
   ]
 }
 
-// Joined line, hard-truncated to the terminal width (argv of GUI apps runs to thousands of chars).
+/**
+ * Joins cells with single spaces and hard-truncates the result to the terminal
+ * width so a GUI app's multi-thousand-char argv can't wrap the display.
+ *
+ * @param cells the cells to join (typically from {@link rowCells})
+ * @param width maximum line width in columns
+ * @returns the joined line, ellipsised if it exceeds `width`
+ */
 export function formatLine(cells: string[], width: number): string {
   const line = cells.join(' ')
   return line.length > width ? line.slice(0, Math.max(1, width - 1)) + '…' : line
