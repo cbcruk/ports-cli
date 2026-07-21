@@ -148,7 +148,8 @@ export function formatLine(cells: string[], width: number): string {
 }
 
 export const FW_COLOR: Record<string, string> = {
-  'Next.js': 'white', Vite: 'magenta', Nuxt: 'green', Astro: 'red',
-  Webpack: 'blue', Remix: 'cyan', Workers: 'yellow', Bun: 'yellow', Deno: 'green',
+  'Next.js': 'white', SvelteKit: 'red', Vite: 'magenta', Nuxt: 'green', Astro: 'red',
+  Gatsby: 'magenta', Angular: 'red', Storybook: 'magenta', Webpack: 'blue', Remix: 'cyan',
+  Expo: 'blue', Workers: 'yellow', Bun: 'yellow', Deno: 'green',
   Rails: 'red', Python: 'blue', Go: 'cyan', Node: 'green', '—': 'gray',
 }

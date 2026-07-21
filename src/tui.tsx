@@ -39,12 +39,20 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
 
   useEffect(() => {
     let alive = true
+    // A slow collect() (many listeners, sluggish lsof) can outlast the interval.
+    // Skip overlapping ticks so concurrent collects can't corrupt the shared
+    // CPU baseline / cwd cache inside the collector.
+    let inFlight = false
     const tick = async () => {
+      if (inFlight) return
+      inFlight = true
       try {
         const r = await collectRef.current!()
         if (alive) { setRows(r); setErr('') }
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : String(e))
+      } finally {
+        inFlight = false
       }
     }
     void tick()

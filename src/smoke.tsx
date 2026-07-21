@@ -9,7 +9,7 @@ const data: Row[] = [
   { port: 8000, ports: [8000], pid: 61002, command: '/opt/homebrew/bin/python3.11 -m http.server 8000', framework: 'Python', project: 'api', cpu: 3.1, memMB: 44, uptimeSecs: 94304 },
 ]
 
-const { unmount, lastFrame } = render(<App collect={async () => data} intervalMs={100000} />) as any
+const { unmount } = render(<App collect={async () => data} intervalMs={100000} />)
 setTimeout(() => {
   unmount()
   console.log('\n[smoke] rendered without throwing')

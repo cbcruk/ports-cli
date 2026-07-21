@@ -57,15 +57,23 @@ export function parseClock(s: string): number {
 const RULES: [RegExp, string][] = [
   // `next dev` renames itself to "next-server (v15.3.6)" once booted, so match both argv and post-rename forms.
   [/(^|[/\s])next(-server|-router-worker)?(\/|\s|$)/, 'Next.js'],
+  // SvelteKit / Gatsby / Angular / Storybook run *on* Vite or Webpack, so match
+  // their own signatures before the generic bundler rules below.
+  [/svelte-kit|@sveltejs\//, 'SvelteKit'],
   [/vite/, 'Vite'],
   [/nuxt/, 'Nuxt'],
   [/astro/, 'Astro'],
+  [/\bgatsby\b/, 'Gatsby'],
+  [/@angular\/|\bng serve\b/, 'Angular'],
+  [/storybook/, 'Storybook'],
   [/webpack|react-scripts/, 'Webpack'],
   [/remix/, 'Remix'],
+  // Expo/Metro bundlers run on node — match before the bare-node fallback.
+  [/\bexpo\b|\bmetro\b/, 'Expo'],
   [/\bworkerd\b|wrangler/, 'Workers'],
   [/\bbun\b/, 'Bun'],
   [/\bdeno\b/, 'Deno'],
-  [/rails|puma|\bp[uma]{3}\b/, 'Rails'],
+  [/rails|puma/, 'Rails'],
   [/uvicorn|gunicorn|flask|manage\.py runserver|http\.server/, 'Python'],
   [/\/go-build\/|\bgo run\b/, 'Go'],
   [/\bnode\b/, 'Node'],
