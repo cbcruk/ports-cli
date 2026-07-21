@@ -45,8 +45,8 @@ pnpm typecheck
 - **Enrich**: one batched `ps -o pid=,rss=,etime=,time=,command=` → mem, uptime, cumulative CPU time, full argv. `cwd` via `lsof -d cwd` (cached per pid) for the project name.
 - **Live CPU**: `ps` gives *lifetime-average* %cpu, which is useless for a live view. Instead we diff cumulative CPU-time between ticks over wall-clock — the same delta top does. First frame shows `·` (no baseline yet).
 - **Framework**: regex over the full argv, specific before generic (Next before bare Node). Next.js renames its process to `next-server (v15.3.6)` once booted, so both the argv and post-rename forms are matched. Known: Next.js · Vite · Nuxt · Astro · Webpack · Remix · Workers · Bun · Deno · Rails · Python · Go · Node.
-- **One row per process**: a pid listening on several ports collapses to a single row keyed on its lowest port, rendered `9229 +2`. `kill` and `/` filter still match any port in the group.
-- **Killing**: signal delivery is not death — a SIGTERM handler can ignore it. `kill` polls until the pid is actually gone and distinguishes *not yours* (EPERM) · *already gone* (ESRCH) · *ignored*, each with its own message.
+- **One row per process**: a pid listening on several ports collapses to a single row keyed on its lowest port, rendered `9229 +2`. `k` kill and `/` filter still match any port in the group.
+- **Killing**: signal delivery is not death — a SIGTERM handler can ignore it. `k`/`x` poll until the pid is actually gone and distinguish *not yours* (EPERM) · *already gone* (ESRCH) · *ignored*, each with its own message.
 - **Noise filter** — most localhost listeners are not dev servers. Hidden unless `--all`:
   - OS daemons and GUI apps: anything under `/System`, `/usr/sbin`, `/usr/libexec`, `/Library`, or inside a `.app` bundle (ControlCenter, Spotify, VSCode helpers).
   - Processes listening *only* in the ephemeral range (≥ 49152) — workerd and Vite control sockets, never something you'd browse to.
@@ -66,5 +66,5 @@ resolves eagerly — it is a devDependency for that reason alone.
 ## Notes / limits
 
 - macOS 14+ target. Verified end-to-end on macOS (Darwin 25) — `lsof`/`ps` parsing and the live path both.
-- "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of `open <url>`.
+- "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of the `o` key, which opens the port's URL.
 - Native upgrade path: replace the lsof/ps subprocesses with a napi-rs `libproc` binding (`proc_listpids` + `proc_pidfdinfo`) — zero subprocess spawns per tick.
