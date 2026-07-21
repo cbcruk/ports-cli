@@ -1,7 +1,7 @@
 {
   "name": "ports",
   "version": "1.0.0",
-  "description": "CLI/TUI for localhost dev servers",
+  "description": "TUI for localhost dev servers",
   "bin": {
     "ports": "./dist/index.js"
   },
@@ -9,13 +9,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "esbuild src/index.tsx --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist/index.js && chmod +x dist/index.js",
-    "build:binary": "bun build src/index.tsx --compile --outfile ports",
+    "build": "esbuild src/index.tsx --bundle --platform=node --format=esm --target=node20 --packages=external --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile=dist/index.js && chmod +x dist/index.js",
+    "build:binary": "bun build src/index.tsx --compile --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile ports",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/core.test.ts && tsx src/view.test.ts",
-    "dev": "tsx src/index.tsx",
-    "watch": "tsx src/index.tsx -w"
+    "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/smoke.tsx",
+    "dev": "tsx src/index.tsx"
   },
   "keywords": [
     "ports",

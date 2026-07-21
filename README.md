@@ -1,31 +1,27 @@
-# ports — CLI/TUI for localhost dev servers
+# ports — TUI for localhost dev servers
 
-A CLI reimagining of the Ports.app menu-bar tool. One shared data layer, several views.
+A TUI reimagining of the Ports.app menu-bar tool. One shared data layer, one live view.
 
 ```
-$ ports
-PORT      FRAMEWORK PROJECT              PID   CPU%   MEM MB      UP COMMAND
-3000      Next.js   weather            70244    1.2       15    2d8h next-server (v15.3.6)
-3333      Vite      rss-extensions     24546    0.0       22  11d23h /Users/e/.vite-plus/js_runtime/node/…
-9229 +2   Workers   github-traffic-…   61323    0.4       18   4d23h /Users/e/GitHub/github-traffic-dash…
+🔌 ports  3 listening · sort:port
+  PORT      FRAMEWORK PROJECT              PID   CPU%   MEM MB      UP COMMAND
+▸ 3000      Next.js   weather            70244    1.2       15    2d8h next-server (v15.3.6)
+  3333      Vite      rss-extensions     24546    0.0       22  11d23h /Users/e/.vite-plus/js_runtime/node/…
+  9229 +2   Workers   github-traffic-…   61323    0.4       18   4d23h /Users/e/GitHub/github-traffic-dash…
+  ↑↓ select · k kill · x force · o open · s sort · / filter · q quit
 ```
 
 ## Usage
 
 ```
-ports                 # snapshot table (double-samples for a live CPU %)
-ports --json          # machine output, pipe into jq
-ports -w              # live TUI (Ink)
+ports                 # live TUI (Ink)
 ports -a / --all      # include OS daemons, GUI apps, ephemeral-only listeners
-ports kill 3000 4000  # kill by port — SIGTERM (add -9 for SIGKILL)
-ports open 3000       # open http://localhost:3000
+ports -v / --version  # print version
+ports -h / --help     # usage and keys
 ```
 
-`kill` exits 1 for any port it did not manage to kill, so it composes:
-
-```bash
-ports kill 3000 || echo "nothing was listening"
-```
+`ports` is TUI-only — enumerate, kill, and open all live inside the one view.
+It needs an interactive terminal; run in a TTY (it exits 1 otherwise).
 
 ## TUI keys
 
@@ -39,7 +35,7 @@ across re-sorts instead of drifting onto its neighbour.
 
 ```bash
 pnpm install
-pnpm watch             # live TUI against your real machine
+pnpm dev               # live TUI against your real machine
 pnpm test              # parser + view logic, no processes harmed
 pnpm typecheck
 ```
@@ -49,34 +45,14 @@ pnpm typecheck
 - **Enumerate**: `lsof -nP -iTCP -sTCP:LISTEN -F pcn` → pid · command · listening ports. Field output (`-F`), not columns, so parsing is robust. IPv4+IPv6 on the same port dedupe.
 - **Enrich**: one batched `ps -o pid=,rss=,etime=,time=,command=` → mem, uptime, cumulative CPU time, full argv. `cwd` via `lsof -d cwd` (cached per pid) for the project name.
 - **Live CPU**: `ps` gives *lifetime-average* %cpu, which is useless for a live view. Instead we diff cumulative CPU-time between ticks over wall-clock — the same delta top does. First frame shows `·` (no baseline yet).
-- **Framework**: regex over the full argv, specific before generic (Next before bare Node). Next.js renames its process to `next-server (v15.3.6)` once booted, so both the argv and post-rename forms are matched. Known: Next.js · Vite · Nuxt · Astro · Webpack · Remix · Workers · Bun · Deno · Rails · Python · Go · Node.
-- **One row per process**: a pid listening on several ports collapses to a single row keyed on its lowest port, rendered `9229 +2`. `kill` and `/` filter still match any port in the group.
-- **Killing**: signal delivery is not death — a SIGTERM handler can ignore it. `kill` polls until the pid is actually gone and distinguishes *not yours* (EPERM) · *already gone* (ESRCH) · *ignored*, each with its own message.
+- **Framework**: regex over the full argv, specific before generic (Next before bare Node). Next.js renames its process to `next-server (v15.3.6)` once booted, so both the argv and post-rename forms are matched. Frameworks that run *on* Vite/Webpack/node (SvelteKit, Gatsby, Angular, Storybook, Expo) are matched by their own signature before the generic bundler rules. Known: Next.js · SvelteKit · Vite · Nuxt · Astro · Gatsby · Angular · Storybook · Webpack · Remix · Expo · Workers · Bun · Deno · Rails · Python · Go · Node.
+- **One row per process**: a pid listening on several ports collapses to a single row keyed on its lowest port, rendered `9229 +2`. `k` kill and `/` filter still match any port in the group.
+- **Killing**: signal delivery is not death — a SIGTERM handler can ignore it. `k`/`x` poll until the pid is actually gone and distinguish *not yours* (EPERM) · *already gone* (ESRCH) · *ignored*, each with its own message.
 - **Noise filter** — most localhost listeners are not dev servers. Hidden unless `--all`:
   - OS daemons and GUI apps: anything under `/System`, `/usr/sbin`, `/usr/libexec`, `/Library`, or inside a `.app` bundle (ControlCenter, Spotify, VSCode helpers).
   - Processes listening *only* in the ephemeral range (≥ 49152) — workerd and Vite control sockets, never something you'd browse to.
 
   On a typical machine this is the difference between 54 rows and 4.
-
-## JSON
-
-One object per process. `port` is the primary (lowest); `ports` holds the whole group.
-
-```json
-{
-  "port": 9229,
-  "ports": [9229, 55725, 55727],
-  "pid": 61323,
-  "command": "…/workerd serve --socket-addr=entry=127.0.0.1:9229",
-  "framework": "Workers",
-  "project": "github-traffic-dashboard",
-  "cpu": 0.4,
-  "memMB": 18,
-  "uptimeSecs": 428400
-}
-```
-
-`cpu` is `null` only when there is no baseline to diff against — every other path double-samples.
 
 ## Packaging
 
@@ -91,5 +67,5 @@ resolves eagerly — it is a devDependency for that reason alone.
 ## Notes / limits
 
 - macOS 14+ target. Verified end-to-end on macOS (Darwin 25) — `lsof`/`ps` parsing and the live path both.
-- "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of `open <url>`.
+- "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of the `o` key, which opens the port's URL.
 - Native upgrade path: replace the lsof/ps subprocesses with a napi-rs `libproc` binding (`proc_listpids` + `proc_pidfdinfo`) — zero subprocess spawns per tick.

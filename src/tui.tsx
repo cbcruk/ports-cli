@@ -7,6 +7,19 @@ type Collect = () => Promise<Row[]>
 
 type Props = { collect?: Collect; intervalMs?: number; showAll?: boolean }
 
+/**
+ * The live Ink TUI: a self-refreshing table of localhost dev servers with
+ * keyboard-driven select, kill, open, sort, and filter.
+ *
+ * Polls `collect` every `intervalMs`, re-sorting and re-filtering each tick.
+ * Selection and pending kills are anchored to a pid (not a row index) so a
+ * refresh landing mid-interaction can't retarget the wrong process. `k`/`x`
+ * arm a `y`/`n` confirmation before signalling.
+ *
+ * @param props.collect data source; defaults to a real {@link createCollector}
+ * @param props.intervalMs refresh interval in ms (default `1500`)
+ * @param props.showAll include system/GUI/ephemeral listeners (default `false`)
+ */
 export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
   const { exit } = useApp()
   const { isRawModeSupported } = useStdin()
@@ -26,12 +39,20 @@ export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
 
   useEffect(() => {
     let alive = true
+    // A slow collect() (many listeners, sluggish lsof) can outlast the interval.
+    // Skip overlapping ticks so concurrent collects can't corrupt the shared
+    // CPU baseline / cwd cache inside the collector.
+    let inFlight = false
     const tick = async () => {
+      if (inFlight) return
+      inFlight = true
       try {
         const r = await collectRef.current!()
         if (alive) { setRows(r); setErr('') }
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : String(e))
+      } finally {
+        inFlight = false
       }
     }
     void tick()
