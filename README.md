@@ -21,7 +21,10 @@ ports -h / --help     # usage and keys
 ```
 
 `ports` is TUI-only — enumerate, kill, and open all live inside the one view.
-It needs an interactive terminal; run in a TTY (it exits 1 otherwise).
+It needs a terminal to draw on, and exits 1 when stdout is not a TTY. Keys keep
+working even when stdin isn't a TTY (launched from a pipeline, with stdin
+redirected, or by a wrapper): it reads the controlling terminal via `/dev/tty`,
+the same way fzf and vim do.
 
 ## TUI keys
 
