@@ -13,7 +13,7 @@
     "build:binary": "bun build src/index.tsx --compile --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile ports",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/smoke.tsx",
+    "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/web.test.ts && tsx src/smoke.tsx",
     "dev": "tsx src/index.tsx"
   },
   "keywords": [
@@ -27,6 +27,8 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@hono/node-server": "^2.1.0",
+    "hono": "^4.13.1",
     "ink": "^5.2.1",
     "react": "^18.3.1"
   },

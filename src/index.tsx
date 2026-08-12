@@ -30,18 +30,33 @@ function openControllingTty(): NodeJS.ReadStream | null {
 const argv = process.argv.slice(2)
 const showAll = argv.includes('-a') || argv.includes('--all')
 
+/** Reads `--flag <value>`; returns `undefined` when absent or non-numeric. */
+function numFlag(name: string): number | undefined {
+  const i = argv.indexOf(name)
+  const v = i === -1 ? undefined : argv[i + 1]
+  return v && /^\d+$/.test(v) ? Number(v) : undefined
+}
+
 if (argv.includes('-v') || argv.includes('--version')) {
   console.log(VERSION)
 } else if (argv.includes('-h') || argv.includes('--help')) {
-  console.log(`ports — live TUI for localhost dev servers
+  console.log(`ports — live view of localhost dev servers
 
 usage: ports [-a | --all]
+       ports --web [--port <n>] [--no-open]
 
   -a, --all      include OS daemons, GUI apps, ephemeral-only listeners
+      --web      serve the browser UI on loopback instead of the TUI
+      --port <n> port for --web (default 7331, falls back if taken)
+      --no-open  do not open the browser for --web
   -v, --version  print version
   -h, --help     print this help
 
 keys: ↑↓ select · k kill · x force · o open · s sort · / filter · q quit`)
+} else if (argv.includes('--web')) {
+  // No TTY needed here — the UI lives in the browser.
+  const { startWeb } = await import('./web.ts')
+  await startWeb({ port: numFlag('--port'), open: !argv.includes('--no-open') })
 } else if (!process.stdout.isTTY) {
   // Nothing to draw on — the only case worth refusing outright.
   console.error('ports needs an interactive terminal to run (stdout is not a TTY)')

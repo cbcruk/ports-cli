@@ -375,16 +375,26 @@ export function fmtKill(o: KillOutcome, port: number, pid: number, force: boolea
 }
 
 /**
- * Opens `http://localhost:<port>` in the default browser via the platform
- * opener (`open` on macOS, `xdg-open` elsewhere). Fire-and-forget: failures are
- * swallowed so a missing opener can't crash the UI.
+ * Opens a URL in the default browser via the platform opener (`open` on macOS,
+ * `xdg-open` elsewhere). Fire-and-forget: failures are swallowed so a missing
+ * opener can't crash the UI.
+ *
+ * @param url the URL to open
+ * @param exec command runner (injectable for tests)
+ */
+export function openUrl(url: string, exec: Exec = defaultExec): void {
+  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open'
+  void exec(opener, [url]).catch(() => {})
+}
+
+/**
+ * Opens `http://localhost:<port>` in the default browser.
  *
  * @param port localhost port to open
  * @param exec command runner (injectable for tests)
  */
 export function openPort(port: number, exec: Exec = defaultExec): void {
-  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open'
-  void exec(opener, [`http://localhost:${port}`]).catch(() => {})
+  openUrl(`http://localhost:${port}`, exec)
 }
 
 // ── formatters ───────────────────────────────────────────────────────────────
