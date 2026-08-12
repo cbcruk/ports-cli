@@ -1,6 +1,7 @@
-# ports — TUI for localhost dev servers
+# ports — live view of localhost dev servers
 
-A TUI reimagining of the Ports.app menu-bar tool. One shared data layer, one live view.
+A reimagining of the Ports.app menu-bar tool. One shared data layer, two front
+ends: a terminal TUI and a browser UI.
 
 ```
 🔌 ports  3 listening · sort:port
@@ -15,16 +16,40 @@ A TUI reimagining of the Ports.app menu-bar tool. One shared data layer, one liv
 
 ```
 ports                 # live TUI (Ink)
+ports --web           # browser UI on 127.0.0.1:7331, opens your browser
+ports --web --port 9000 --no-open
 ports -a / --all      # include OS daemons, GUI apps, ephemeral-only listeners
 ports -v / --version  # print version
 ports -h / --help     # usage and keys
 ```
 
-`ports` is TUI-only — enumerate, kill, and open all live inside the one view.
-It needs a terminal to draw on, and exits 1 when stdout is not a TTY. Keys keep
-working even when stdin isn't a TTY (launched from a pipeline, with stdin
+Enumerate, kill, and open all live inside whichever view you pick — there are no
+subcommands.
+
+The TUI needs a terminal to draw on, and exits 1 when stdout is not a TTY. Keys
+keep working even when stdin isn't a TTY (launched from a pipeline, with stdin
 redirected, or by a wrapper): it reads the controlling terminal via `/dev/tty`,
 the same way fzf and vim do.
+
+## Browser UI
+
+`ports --web` serves a single self-contained page (no bundler, no build step, no
+CDN) and streams updates over SSE. Click a port to open it, `kill`/`force` to
+signal it. The system/ephemeral toggle and the filter run client-side, so they
+are instant.
+
+It is a loopback service that can kill processes, so it is locked down:
+
+- Binds `127.0.0.1` only, and every route — including the HTML — requires a
+  random per-run token, printed as part of the URL.
+- `Host` must be a loopback name (blocks DNS rebinding) and any `Origin` must be
+  loopback too (blocks a page on another origin from driving it).
+- `/api/kill` refuses any pid that is not currently in the listener list, so it
+  cannot be used as a general "kill any pid" endpoint.
+
+If `--port` is taken it falls back to an ephemeral port rather than failing —
+a port tool should not lose to a port race. The server hides its own process
+from the listing.
 
 ### Upgrading from an older version
 
@@ -47,7 +72,8 @@ across re-sorts instead of drifting onto its neighbour.
 ```bash
 pnpm install
 pnpm dev               # live TUI against your real machine
-pnpm test              # parser + view logic, no processes harmed
+pnpm dev --web         # browser UI against your real machine
+pnpm test              # parser + view + HTTP logic, no processes harmed
 pnpm typecheck
 ```
 
@@ -64,6 +90,13 @@ pnpm typecheck
   - Processes listening *only* in the ephemeral range (≥ 49152) — workerd and Vite control sockets, never something you'd browse to.
 
   On a typical machine this is the difference between 54 rows and 4.
+- **Two front ends, one collector**: `core.ts` owns every subprocess and parser;
+  the TUI and the web server are both just views over it. The web server polls
+  once and fans the result out to all open tabs — a collector per tab would give
+  each of them a different (and wrong) CPU baseline. Rows reach the browser with
+  the raw numbers *and* the strings formatted by `core.ts`/`view.ts`, so the page
+  never reimplements a formatter. In the noise filter's place it ships a `noise`
+  flag per row, so the toggle is instant instead of a round trip.
 
 ## Packaging
 
