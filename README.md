@@ -26,6 +26,14 @@ working even when stdin isn't a TTY (launched from a pipeline, with stdin
 redirected, or by a wrapper): it reads the controlling terminal via `/dev/tty`,
 the same way fzf and vim do.
 
+### Upgrading from an older version
+
+The `-w` / `--watch` flag is gone — plain `ports` is the TUI now, and the
+`kill`, `open`, and `--json` subcommands moved into it (`k`/`x`, `o`, and the
+live table). If bare `ports` still prints a one-shot table, you are running a
+stale build: rebuild or reinstall it. `ports -v` prints a version on current
+builds and the table on old ones, so it tells the two apart.
+
 ## TUI keys
 
 `↑↓` select · `k` SIGTERM · `x` SIGKILL · `o` open · `s` cycle sort · `/` filter · `q` quit
