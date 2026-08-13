@@ -36,12 +36,13 @@ if (argv.includes('-v') || argv.includes('--version')) {
   console.log(`ports — live view of localhost dev servers
 
 usage: ports [-a | --all]
-       ports --web [--port <n>] [--no-open]
+       ports --web [--port <n>] [--tab] [--no-open]
 
   -a, --all      include OS daemons, GUI apps, ephemeral-only listeners
       --web      serve the browser UI on loopback instead of the TUI
       --port <n> port for --web (default 7331, falls back if taken)
-      --no-open  do not open the browser for --web
+      --tab      open a normal browser tab instead of an app window
+      --no-open  do not open anything for --web
   -v, --version  print version
   -h, --help     print this help
 

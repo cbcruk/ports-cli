@@ -51,7 +51,7 @@ jobs:
           mkdir -p out
           version=$(node -p "require('./package.json').version")
           for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-            bun build src/index.tsx --compile --target="bun-$target" \
+            bun build src/web-entry.ts --compile --target="bun-$target" \
               --define __VERSION__="\"$version\"" --outfile out/ports
             tar -czf "out/ports-$target.tar.gz" -C out ports
             rm out/ports

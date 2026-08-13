@@ -16,7 +16,8 @@ ends: a terminal TUI and a browser UI.
 
 ```
 ports                 # live TUI (Ink)
-ports --web           # browser UI on 127.0.0.1:7331, opens your browser
+ports --web           # browser UI on 127.0.0.1:7331, opens an app window
+ports --web --tab     # open a normal browser tab instead
 ports --web --port 9000 --no-open
 ports -a / --all      # include OS daemons, GUI apps, ephemeral-only listeners
 ports -v / --version  # print version
@@ -37,6 +38,13 @@ the same way fzf and vim do.
 CDN) and streams updates over SSE. Click a port to open it, `kill`/`force` to
 signal it. The system/ephemeral toggle and the filter run client-side, so they
 are instant.
+
+It opens as an **app window** — no tab strip, no address bar — by running an
+installed Chromium-family browser (Chrome, Edge, Brave, Chromium) with `--app`.
+The executable is run directly rather than through `open -na`, which would spawn
+a second browser instance instead of handing the window to the running one.
+With none installed it falls back to a normal tab and says so; `--tab` asks for
+that on purpose, and `--no-open` opens nothing.
 
 It is a loopback service that can kill processes, so it is locked down:
 
@@ -100,47 +108,52 @@ pnpm typecheck
 
 ## Install
 
-Grab a binary from the [latest release](https://github.com/cbcruk/ports-cli/releases) —
-each archive holds a single self-contained `ports` (both UIs, no node needed):
+**Binary** — from the [latest release](https://github.com/cbcruk/ports-cli/releases).
+Reaching for a binary means you want the GUI, so the binaries carry the **browser UI
+only** and start it with no flag at all:
 
 ```bash
-tar -xzf ports-darwin-arm64.tar.gz && ./ports
+tar -xzf ports-darwin-arm64.tar.gz && ./ports    # window opens
 ```
 
-Release binaries are built on Linux and are **not codesigned**, so macOS quarantines them.
-Clear it once with `xattr -d com.apple.quarantine ./ports`.
+Each archive holds one self-contained `ports`; no node required. They are built on Linux
+and are **not codesigned**, so macOS quarantines them — clear it once with
+`xattr -d com.apple.quarantine ./ports`.
 
-Or install from source with npm/pnpm, which needs node.
+**npm** — needs node, and gives you both UIs: `ports` for the TUI, `ports --web` for the
+browser. That flag only exists here; in the binaries there is nothing to opt out of.
 
 ## Packaging
 
 ```bash
-pnpm build              # dist/index.js — the `ports` bin, deps external
-pnpm build:binary       # ./ports — standalone, both UIs, needs bun
-pnpm build:sea          # build/ports-web — standalone, web UI only, node only
+pnpm build              # dist/index.js — the npm `ports` bin, both UIs, deps external
+pnpm build:binary       # ./ports — standalone web UI, needs bun
+pnpm build:sea          # build/ports — standalone web UI, node only
 ```
 
-Standalone sizes, uncompressed / as shipped in a release archive:
+Both standalone builds compile `src/web-entry.ts`, so a binary is the browser UI and nothing
+else. Sizes, uncompressed / as shipped in a release archive:
 
 | build | target | size | archive |
 | --- | --- | --- | --- |
-| `build:binary` (bun) | darwin-arm64 | 61 MB | 22 MB |
-| `build:binary` (bun) | linux-x64 | 97 MB | 37 MB |
+| `build:binary` (bun) | darwin-arm64 | 59 MB | 22 MB |
+| `build:binary` (bun) | linux-x64 | 95 MB | 37 MB |
 | `build:sea` (node) | host only | 120 MB | — |
 
-Releases ship the bun build: it is smaller *and* carries both UIs. `build:sea` exists for
-building without bun at all, and cannot include the TUI (see below).
+Nearly all of that is the embedded runtime, not the app: dropping the TUI trimmed only ~2 MB
+off the bun build. Releases ship the bun one because it is the smaller runtime; `build:sea`
+exists for building without bun at all.
 
 `build:binary` needs `bun`. Ink dynamically imports `react-devtools-core`, which bun's bundler
 resolves eagerly — it is a devDependency for that reason alone.
 
 `build:sea` uses Node's own [single executable](https://nodejs.org/api/single-executable-applications.html)
-support, so it needs no toolchain beyond node. **It packages the web UI only, and that is a hard
-constraint rather than a choice**: SEA injects a *CommonJS* bundle, and the TUI's dependency chain
+support, so it needs no toolchain beyond node. Leaving the TUI out is also what makes it
+possible at all: SEA injects a *CommonJS* bundle, and the TUI's dependency chain
 (`ink` → `yoga-layout`) uses top-level await, which CommonJS cannot express — bundling it fails
 outright. The web server depends on nothing but Hono and node builtins, so it packages cleanly
 (a 127 KB bundle; the remaining ~120 MB is the embedded node runtime, which is why this binary is
-larger than the bun one despite carrying less).
+larger than the bun one for identical contents).
 
 On macOS the script strips the signature from `node` before injection and re-signs afterwards —
 without that the binary is killed on launch.

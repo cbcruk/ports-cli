@@ -5,14 +5,14 @@
 # Web only, by necessity: SEA injects a CommonJS bundle, and the TUI's
 # dependency chain (ink → yoga-layout) uses top-level await, which cannot be
 # expressed in CommonJS. Bundling the TUI here fails outright rather than
-# degrading, so the binary ships `ports-web` and the TUI ships via npm.
+# degrading, so the binary ships the web UI and the TUI ships via npm.
 #
 # Run through the package manager (`pnpm build:sea`) so node_modules/.bin is on
 # PATH.
 set -euo pipefail
 
 OUT=${OUT:-build}
-NAME=${NAME:-ports-web}
+NAME=${NAME:-ports}
 VERSION=$(node -p "require('./package.json').version")
 FUSE=NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
 
