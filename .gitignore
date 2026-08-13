@@ -3,3 +3,4 @@ dist/
 ports
 .DS_Store
 *.log
+build/

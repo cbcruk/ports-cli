@@ -102,11 +102,23 @@ pnpm typecheck
 
 ```bash
 pnpm build              # dist/index.js — the `ports` bin, deps external
-pnpm build:binary       # ./ports — standalone, ~51 MB, no node_modules
+pnpm build:binary       # ./ports — standalone, ~51 MB, both UIs, needs bun
+pnpm build:sea          # build/ports-web — standalone, ~120 MB, web UI only, node only
 ```
 
 `build:binary` needs `bun`. Ink dynamically imports `react-devtools-core`, which bun's bundler
 resolves eagerly — it is a devDependency for that reason alone.
+
+`build:sea` uses Node's own [single executable](https://nodejs.org/api/single-executable-applications.html)
+support, so it needs no toolchain beyond node. **It packages the web UI only, and that is a hard
+constraint rather than a choice**: SEA injects a *CommonJS* bundle, and the TUI's dependency chain
+(`ink` → `yoga-layout`) uses top-level await, which CommonJS cannot express — bundling it fails
+outright. The web server depends on nothing but Hono and node builtins, so it packages cleanly
+(a 127 KB bundle; the remaining ~120 MB is the embedded node runtime, which is why this binary is
+more than twice the size of the bun one).
+
+On macOS the script strips the signature from `node` before injection and re-signs afterwards —
+without that the binary is killed on launch.
 
 ## Notes / limits
 
