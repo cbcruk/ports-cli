@@ -98,13 +98,38 @@ pnpm typecheck
   never reimplements a formatter. In the noise filter's place it ships a `noise`
   flag per row, so the toggle is instant instead of a round trip.
 
+## Install
+
+Grab a binary from the [latest release](https://github.com/cbcruk/ports-cli/releases) —
+each archive holds a single self-contained `ports` (both UIs, no node needed):
+
+```bash
+tar -xzf ports-darwin-arm64.tar.gz && ./ports
+```
+
+Release binaries are built on Linux and are **not codesigned**, so macOS quarantines them.
+Clear it once with `xattr -d com.apple.quarantine ./ports`.
+
+Or install from source with npm/pnpm, which needs node.
+
 ## Packaging
 
 ```bash
 pnpm build              # dist/index.js — the `ports` bin, deps external
-pnpm build:binary       # ./ports — standalone, ~51 MB, both UIs, needs bun
-pnpm build:sea          # build/ports-web — standalone, ~120 MB, web UI only, node only
+pnpm build:binary       # ./ports — standalone, both UIs, needs bun
+pnpm build:sea          # build/ports-web — standalone, web UI only, node only
 ```
+
+Standalone sizes, uncompressed / as shipped in a release archive:
+
+| build | target | size | archive |
+| --- | --- | --- | --- |
+| `build:binary` (bun) | darwin-arm64 | 61 MB | 22 MB |
+| `build:binary` (bun) | linux-x64 | 97 MB | 37 MB |
+| `build:sea` (node) | host only | 120 MB | — |
+
+Releases ship the bun build: it is smaller *and* carries both UIs. `build:sea` exists for
+building without bun at all, and cannot include the TUI (see below).
 
 `build:binary` needs `bun`. Ink dynamically imports `react-devtools-core`, which bun's bundler
 resolves eagerly — it is a devDependency for that reason alone.
@@ -115,10 +140,18 @@ constraint rather than a choice**: SEA injects a *CommonJS* bundle, and the TUI'
 (`ink` → `yoga-layout`) uses top-level await, which CommonJS cannot express — bundling it fails
 outright. The web server depends on nothing but Hono and node builtins, so it packages cleanly
 (a 127 KB bundle; the remaining ~120 MB is the embedded node runtime, which is why this binary is
-more than twice the size of the bun one).
+larger than the bun one despite carrying less).
 
 On macOS the script strips the signature from `node` before injection and re-signs afterwards —
 without that the binary is killed on launch.
+
+### Releases
+
+`.github/workflows/release.yml` runs on a published release (or `workflow_dispatch` with a tag).
+bun cross-compiles all four targets from a single Linux runner — no macOS runner, no build matrix —
+after `typecheck` and `test` pass, then uploads the archives plus `checksums.txt` to the release.
+It refuses to build when the tag and `package.json` version disagree, since the version is compiled
+into the binary and would otherwise be wrong.
 
 ## Notes / limits
 
