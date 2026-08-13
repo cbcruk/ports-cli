@@ -30,13 +30,6 @@ function openControllingTty(): NodeJS.ReadStream | null {
 const argv = process.argv.slice(2)
 const showAll = argv.includes('-a') || argv.includes('--all')
 
-/** Reads `--flag <value>`; returns `undefined` when absent or non-numeric. */
-function numFlag(name: string): number | undefined {
-  const i = argv.indexOf(name)
-  const v = i === -1 ? undefined : argv[i + 1]
-  return v && /^\d+$/.test(v) ? Number(v) : undefined
-}
-
 if (argv.includes('-v') || argv.includes('--version')) {
   console.log(VERSION)
 } else if (argv.includes('-h') || argv.includes('--help')) {
@@ -55,8 +48,8 @@ usage: ports [-a | --all]
 keys: ↑↓ select · k kill · x force · o open · s sort · / filter · q quit`)
 } else if (argv.includes('--web')) {
   // No TTY needed here — the UI lives in the browser.
-  const { startWeb } = await import('./web.ts')
-  await startWeb({ port: numFlag('--port'), open: !argv.includes('--no-open') })
+  const { startWeb, webOptionsFromArgv } = await import('./web.ts')
+  await startWeb(webOptionsFromArgv(argv))
 } else if (!process.stdout.isTTY) {
   // Nothing to draw on — the only case worth refusing outright.
   console.error('ports needs an interactive terminal to run (stdout is not a TTY)')

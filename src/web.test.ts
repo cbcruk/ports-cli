@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { serve } from '@hono/node-server'
 import { request } from 'node:http'
-import { createApp, toWire, newToken, type Collect } from './web.ts'
+import { createApp, toWire, newToken, webOptionsFromArgv, type Collect } from './web.ts'
 import type { Row } from './core.ts'
 import type { KillOutcome } from './core.ts'
 
@@ -27,6 +27,14 @@ ok('system process is noise', toWire(mk({ command: '/Applications/Spotify.app/Co
 ok('ephemeral-only is noise', toWire(mk({ port: 55725, ports: [55725, 57694] })).noise)
 ok('multi-port display', toWire(mk({ port: 9229, ports: [9229, 55725, 55727] })).display.ports === '9229 +2')
 ok('null cpu display', toWire(mk({ cpu: null })).display.cpu === '·')
+
+// ── webOptionsFromArgv ── (shared by `ports --web` and the SEA binary)
+ok('no flags', JSON.stringify(webOptionsFromArgv([])) === JSON.stringify({ open: true }))
+ok('port parsed', webOptionsFromArgv(['--port', '9000']).port === 9000)
+ok('port 0 is honoured', webOptionsFromArgv(['--port', '0']).port === 0)
+ok('non-numeric port ignored', webOptionsFromArgv(['--port', 'abc']).port === undefined)
+ok('dangling --port ignored', webOptionsFromArgv(['--port']).port === undefined)
+ok('--no-open respected', webOptionsFromArgv(['--no-open']).open === false)
 
 // ── HTTP surface ── (real server on an ephemeral port, fake collector + fake kill)
 const TOKEN = newToken()

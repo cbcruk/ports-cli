@@ -11,6 +11,7 @@
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --platform=node --format=esm --target=node20 --packages=external --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile=dist/index.js && chmod +x dist/index.js",
     "build:binary": "bun build src/index.tsx --compile --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile ports",
+    "build:sea": "bash scripts/build-sea.sh",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
     "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/web.test.ts && tsx src/smoke.tsx",
@@ -36,6 +37,7 @@
     "@types/node": "^26.1.1",
     "@types/react": "^18.3.31",
     "esbuild": "^0.28.1",
+    "postject": "1.0.0-alpha.6",
     "react-devtools-core": "^7.0.1",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3"

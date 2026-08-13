@@ -182,6 +182,22 @@ export function createApp({ token, collect, intervalMs = 1500, kill = killPid }:
 }
 
 /**
+ * Reads the `--web` options out of argv, shared by the `ports` entry point and
+ * the web-only single-executable build so the two cannot drift apart.
+ *
+ * @param argv arguments after the program name
+ * @returns `port` (undefined when absent or non-numeric) and whether to open a browser
+ */
+export function webOptionsFromArgv(argv: string[]): { port?: number; open: boolean } {
+  const i = argv.indexOf('--port')
+  const raw = i === -1 ? undefined : argv[i + 1]
+  return {
+    port: raw && /^\d+$/.test(raw) ? Number(raw) : undefined,
+    open: !argv.includes('--no-open'),
+  }
+}
+
+/**
  * Starts the web UI on loopback and prints (and opens) its tokenized URL.
  *
  * @param opts.port preferred port; falls back to an ephemeral one when taken
