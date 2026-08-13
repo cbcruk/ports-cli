@@ -20,10 +20,11 @@ if (argv.includes('-v') || argv.includes('--version')) {
 } else if (argv.includes('-h') || argv.includes('--help')) {
   console.log(`ports-web — browser UI for localhost dev servers
 
-usage: ports-web [--port <n>] [--no-open]
+usage: ports-web [--port <n>] [--tab] [--no-open]
 
       --port <n> port to serve on (default 7331, falls back if taken)
-      --no-open  do not open the browser
+      --tab      open a normal browser tab instead of an app window
+      --no-open  do not open anything
   -v, --version  print version
   -h, --help     print this help
 

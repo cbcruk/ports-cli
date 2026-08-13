@@ -4,7 +4,7 @@ import { serve } from '@hono/node-server'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import {
   createCollector, killPid, fmtKill, fmtUptime, fmtCpu,
-  isSystemProcess, isEphemeralOnly, openUrl, type Row,
+  isSystemProcess, isEphemeralOnly, openApp, type Row,
 } from './core.ts'
 import { fmtPorts } from './view.ts'
 import { PAGE } from './web-page.ts'
@@ -188,12 +188,13 @@ export function createApp({ token, collect, intervalMs = 1500, kill = killPid }:
  * @param argv arguments after the program name
  * @returns `port` (undefined when absent or non-numeric) and whether to open a browser
  */
-export function webOptionsFromArgv(argv: string[]): { port?: number; open: boolean } {
+export function webOptionsFromArgv(argv: string[]): { port?: number; open: boolean; tab: boolean } {
   const i = argv.indexOf('--port')
   const raw = i === -1 ? undefined : argv[i + 1]
   return {
     port: raw && /^\d+$/.test(raw) ? Number(raw) : undefined,
     open: !argv.includes('--no-open'),
+    tab: argv.includes('--tab'),
   }
 }
 
@@ -206,9 +207,9 @@ export function webOptionsFromArgv(argv: string[]): { port?: number; open: boole
  * @returns the bound port and URL
  */
 export function startWeb(
-  opts: { port?: number; open?: boolean; intervalMs?: number } = {},
+  opts: { port?: number; open?: boolean; tab?: boolean; intervalMs?: number } = {},
 ): Promise<{ port: number; url: string }> {
-  const { port = 7331, open = true, intervalMs } = opts
+  const { port = 7331, open = true, tab = false, intervalMs } = opts
   const token = newToken()
   const { app } = createApp({ token, intervalMs })
 
@@ -219,7 +220,9 @@ export function startWeb(
         if (isRetry) console.log(`:${port} was taken — using :${info.port}`)
         console.log(`ports web ui → ${url}`)
         console.log('press ctrl-c to stop')
-        if (open) openUrl(url)
+        if (open && openApp(url, { tab }) === 'browser' && !tab) {
+          console.log('(no Chromium-family browser found — opened a normal tab; --tab silences this)')
+        }
         resolve({ port: info.port, url })
       })
       server.on('error', (e: NodeJS.ErrnoException) => {

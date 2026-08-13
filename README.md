@@ -16,7 +16,8 @@ ends: a terminal TUI and a browser UI.
 
 ```
 ports                 # live TUI (Ink)
-ports --web           # browser UI on 127.0.0.1:7331, opens your browser
+ports --web           # browser UI on 127.0.0.1:7331, opens an app window
+ports --web --tab     # open a normal browser tab instead
 ports --web --port 9000 --no-open
 ports -a / --all      # include OS daemons, GUI apps, ephemeral-only listeners
 ports -v / --version  # print version
@@ -37,6 +38,13 @@ the same way fzf and vim do.
 CDN) and streams updates over SSE. Click a port to open it, `kill`/`force` to
 signal it. The system/ephemeral toggle and the filter run client-side, so they
 are instant.
+
+It opens as an **app window** — no tab strip, no address bar — by running an
+installed Chromium-family browser (Chrome, Edge, Brave, Chromium) with `--app`.
+The executable is run directly rather than through `open -na`, which would spawn
+a second browser instance instead of handing the window to the running one.
+With none installed it falls back to a normal tab and says so; `--tab` asks for
+that on purpose, and `--no-open` opens nothing.
 
 It is a loopback service that can kill processes, so it is locked down:
 

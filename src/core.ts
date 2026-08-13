@@ -1,4 +1,6 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 export type Row = {
   port: number // primary (lowest) listening port
@@ -395,6 +397,94 @@ export function openUrl(url: string, exec: Exec = defaultExec): void {
  */
 export function openPort(port: number, exec: Exec = defaultExec): void {
   openUrl(`http://localhost:${port}`, exec)
+}
+
+// Chromium-family browsers accept `--app=<url>`, which opens a window with no
+// tab strip or address bar. Absolute paths on macOS (there is no PATH entry for
+// a .app bundle), bare names elsewhere. Order is preference, not popularity:
+// whichever is installed first wins.
+export const APP_MODE_BROWSERS: Record<string, string[]> = {
+  darwin: [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  ],
+  linux: ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'brave-browser'],
+}
+
+/** Resolves a candidate to a runnable path, or `null` when it is not installed. */
+export type Lookup = (candidate: string) => string | null
+
+const defaultLookup: Lookup = (candidate) => {
+  if (candidate.startsWith('/')) return existsSync(candidate) ? candidate : null
+  for (const dir of (process.env.PATH ?? '').split(':')) {
+    if (!dir) continue
+    const full = join(dir, candidate)
+    if (existsSync(full)) return full
+  }
+  return null
+}
+
+/**
+ * Finds an installed Chromium-family browser that can open an app-mode window.
+ *
+ * @param platform `process.platform` value to resolve candidates for
+ * @param lookup resolver for a candidate (injectable for tests)
+ * @returns the executable path, or `null` when none is installed
+ */
+export function findAppModeBrowser(
+  platform: string = process.platform,
+  lookup: Lookup = defaultLookup,
+): string | null {
+  for (const candidate of APP_MODE_BROWSERS[platform] ?? []) {
+    const found = lookup(candidate)
+    if (found) return found
+  }
+  return null
+}
+
+/** Starts a detached process; the browser must outlive us, and vice versa. */
+export type Launch = (cmd: string, args: string[]) => void
+
+const defaultLaunch: Launch = (cmd, args) => {
+  const child = spawn(cmd, args, { detached: true, stdio: 'ignore' })
+  child.on('error', () => {}) // a browser that fails to start must not crash us
+  child.unref()
+}
+
+export type OpenAppOptions = {
+  /** Skip app mode and use the default browser. */
+  tab?: boolean
+  platform?: string
+  lookup?: Lookup
+  launch?: Launch
+  exec?: Exec
+}
+
+/**
+ * Opens a URL in a chromeless app window when a Chromium-family browser is
+ * installed, falling back to the default browser otherwise.
+ *
+ * The executable is run directly rather than through `open -na`: macOS's `-n`
+ * would spin up a second browser instance, while exec'ing the binary hands the
+ * window to the running one.
+ *
+ * @param url the URL to open
+ * @param opts `tab` forces the default browser; the rest are injection points
+ * @returns which path was taken, so callers can report it accurately
+ */
+export function openApp(url: string, opts: OpenAppOptions = {}): 'app' | 'browser' {
+  const { tab = false, platform, lookup, launch = defaultLaunch, exec } = opts
+  if (!tab) {
+    const browser = findAppModeBrowser(platform, lookup)
+    if (browser) {
+      launch(browser, [`--app=${url}`, '--window-size=1180,760'])
+      return 'app'
+    }
+  }
+  openUrl(url, exec)
+  return 'browser'
 }
 
 // ── formatters ───────────────────────────────────────────────────────────────
