@@ -91,17 +91,24 @@ across re-sorts instead of drifting onto its neighbour.
 ## Develop
 
 ```bash
-pnpm install
-pnpm dev               # live TUI against your real machine
-pnpm dev:app           # desktop window against your real machine (needs bun)
-pnpm test              # parser, view, wire, and page logic; no processes harmed
-pnpm typecheck
+bun install
+bun run dev            # live TUI against your real machine
+bun run dev:app        # desktop window against your real machine
+bun run test           # parser, view, wire, and page logic; no processes harmed
+bun run typecheck
 ```
 
-`barlo` is a git dependency, and pnpm refuses to install one with a lifecycle
-script unless it is allowlisted — hence `pnpm-workspace.yaml`. Nothing is
-actually built at install time: barlo commits its declarations and resolves to
+**bun is the only toolchain** — building the app already required it, so the
+alternative was carrying two package managers to install one dependency. It also
+happens to be the path of least resistance for `barlo`, which is a git
+dependency: bun installs one without running its lifecycle scripts, while pnpm
+refuses it outright unless the package is allowlisted. Nothing needs to be built
+at install time either — barlo commits its declarations and resolves to
 TypeScript source under bun.
+
+What that bought, beyond the allowlist: bun runs the TypeScript tests directly
+(no `tsx`) and bundles the npm build itself (no `esbuild`), so the devDependency
+list is types, barlo, and `tsc` for `typecheck`.
 
 ## How it works
 
@@ -149,13 +156,18 @@ ships as a compiled binary instead of a flag on this package.
 ## Packaging
 
 ```bash
-pnpm build              # dist/index.js — the npm `ports` bin, TUI only, deps external
-pnpm build:binary       # ./ports — the desktop app, needs bun
+bun run build           # dist/index.js — the npm `ports` bin, TUI only, deps external
+bun run build:binary    # ./ports — the desktop app
 ```
 
-The two builds compile different entry points, and the split is not a preference: `barlo`
-is bun-only, so it may be imported from `src/web-entry.ts` and nowhere else. `pnpm build`
-runs esbuild with `--platform=node` over `src/index.tsx` and never sees it.
+Both run through bun, but they are not the same kind of build. `build` bundles
+`src/index.tsx` with `--target=node`, so the published bin is an ordinary node ESM script
+that needs no bun on the consumer's machine. `build:binary` compiles `src/web-entry.ts`
+into a self-contained executable with the bun runtime inside it.
+
+The split of entry points is not a preference either: `barlo` is bun-only, so it may be
+imported from `src/web-entry.ts` and nowhere else. The node-targeted build never sees it,
+which is what keeps the npm package runnable under plain node.
 
 Sizes, uncompressed / as shipped in a release archive:
 

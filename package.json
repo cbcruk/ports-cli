@@ -9,12 +9,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "esbuild src/index.tsx --bundle --platform=node --format=esm --target=node20 --packages=external --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile=dist/index.js && chmod +x dist/index.js",
+    "build": "bun build src/index.tsx --target=node --format=esm --packages=external --define __VERSION__='\"'\"$npm_package_version\"'\"' --outfile=dist/index.js && chmod +x dist/index.js",
     "build:binary": "bun build src/web-entry.ts --compile --define __VERSION__='\"'\"$npm_package_version\"'\"' --outfile ports",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/wire.test.ts && tsx src/page.test.ts && tsx src/smoke.tsx",
-    "dev": "tsx src/index.tsx",
+    "test": "bun src/core.test.ts && bun src/view.test.ts && bun src/wire.test.ts && bun src/page.test.ts && bun src/smoke.tsx",
+    "dev": "bun src/index.tsx",
     "dev:app": "bun src/web-entry.ts"
   },
   "keywords": [
@@ -35,10 +35,7 @@
     "@types/node": "^26.1.1",
     "@types/react": "^18.3.31",
     "barlo": "github:cbcruk/barlo#1bec85742202ab52a2c5f60b85d4fdc76edf04bb",
-    "esbuild": "^0.28.1",
     "react-devtools-core": "^7.0.1",
-    "tsx": "^4.23.1",
     "typescript": "^5.9.3"
-  },
-  "packageManager": "pnpm@10.33.0"
+  }
 }
