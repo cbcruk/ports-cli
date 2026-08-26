@@ -1,7 +1,7 @@
 # ports — live view of localhost dev servers
 
 A reimagining of the Ports.app menu-bar tool. One shared data layer, two front
-ends: a terminal TUI and a browser UI.
+ends: a terminal TUI on npm, and a desktop app in the standalone binaries.
 
 ```
 🔌 ports  3 listening · sort:port
@@ -15,51 +15,64 @@ ends: a terminal TUI and a browser UI.
 ## Usage
 
 ```
-ports                 # live TUI (Ink)
-ports --web           # browser UI on 127.0.0.1:7331, opens an app window
-ports --web --tab     # open a normal browser tab instead
-ports --web --port 9000 --no-open
+ports                 # live TUI (Ink), from npm
 ports -a / --all      # include OS daemons, GUI apps, ephemeral-only listeners
 ports -v / --version  # print version
 ports -h / --help     # usage and keys
+
+./ports               # desktop window, from a release binary — no flags at all
 ```
 
 Enumerate, kill, and open all live inside whichever view you pick — there are no
-subcommands.
+subcommands, and neither build has a flag for switching to the other.
 
 The TUI needs a terminal to draw on, and exits 1 when stdout is not a TTY. Keys
 keep working even when stdin isn't a TTY (launched from a pipeline, with stdin
 redirected, or by a wrapper): it reads the controlling terminal via `/dev/tty`,
 the same way fzf and vim do.
 
-## Browser UI
+## Desktop app
 
-`ports --web` serves a single self-contained page (no bundler, no build step, no
-CDN) and streams updates over SSE. Click a port to open it, `kill`/`force` to
-signal it. The system/ephemeral toggle and the filter run client-side, so they
-are instant.
+The release binaries are a GUI and nothing else: run `./ports` and a window
+opens. It is a chrome-less Chrome window — no tab strip, no address bar —
+driven by [barlo](https://github.com/cbcruk/barlo), which finds an installed
+Chrome, Chromium, Edge, or Brave, launches it in `--app` mode against a loopback
+origin, and bridges the page back into the process over CDP. Set
+`BARLO_CHROME_PATH` to point at a browser it does not find; with none installed
+at all it says so and exits.
 
-It opens as an **app window** — no tab strip, no address bar — by running an
-installed Chromium-family browser (Chrome, Edge, Brave, Chromium) with `--app`.
-The executable is run directly rather than through `open -na`, which would spawn
-a second browser instance instead of handing the window to the running one.
-With none installed it falls back to a normal tab and says so; `--tab` asks for
-that on purpose, and `--no-open` opens nothing.
+The page itself is one self-contained document (no bundler, no build step, no
+CDN), embedded in the binary as a string — which is also what lets it survive
+`bun build --compile`, since a compiled binary has no folder to serve from.
+Click a port to open it, `kill`/`force` to signal it. The system/ephemeral
+toggle and the filter run client-side, so they are instant.
 
-It is a loopback service that can kill processes, so it is locked down:
+**There is no HTTP API.** `kill` and `open` go over the RPC bridge, which CDP
+installs into this window's execution context and nowhere else, so a facility
+that can signal processes is not reachable by another local process, by a page
+on another origin, or by a rebound DNS name. Only the page is served over HTTP,
+on an ephemeral loopback port, and it holds no secrets — so it needs no token,
+no `Host` guard, and no `Origin` guard. What replaces them is smaller: the
+bridge still refuses any pid that is not currently in the listener list, so it
+cannot be turned into a general "kill any pid" call.
 
-- Binds `127.0.0.1` only, and every route — including the HTML — requires a
-  random per-run token, printed as part of the URL.
-- `Host` must be a loopback name (blocks DNS rebinding) and any `Origin` must be
-  loopback too (blocks a page on another origin from driving it).
-- `/api/kill` refuses any pid that is not currently in the listener list, so it
-  cannot be used as a general "kill any pid" endpoint.
+The trade is a CDP endpoint, on loopback and unauthenticated, for as long as the
+window is open. A local process under the same user could attach to it and drive
+the window — but that process could also just call `kill(2)` itself, so this is
+not a privilege it did not already have. What it removes is the surface a
+*remote* page could reach, which is the one that mattered.
 
-If `--port` is taken it falls back to an ephemeral port rather than failing —
-a port tool should not lose to a port race. The server hides its own process
-from the listing.
+Closing the window exits the process. Bridge names are `__`-prefixed
+(`__ports`, `__kill`, `__openPort`) because a classic script's top-level
+declarations land on `window`, and an unprefixed `function kill` in the page
+silently replaced the bridge with itself; the page script is wrapped for the
+same reason, and `src/page.test.ts` guards both.
 
 ### Upgrading from an older version
+
+`ports --web` is gone with it: the browser UI became the standalone binaries,
+which need no flag, and the npm package is the TUI alone. `--port`, `--tab`, and
+`--no-open` went with it — the window picks its own ephemeral port.
 
 The `-w` / `--watch` flag is gone — plain `ports` is the TUI now, and the
 `kill`, `open`, and `--json` subcommands moved into it (`k`/`x`, `o`, and the
@@ -80,10 +93,15 @@ across re-sorts instead of drifting onto its neighbour.
 ```bash
 pnpm install
 pnpm dev               # live TUI against your real machine
-pnpm dev --web         # browser UI against your real machine
-pnpm test              # parser + view + HTTP logic, no processes harmed
+pnpm dev:app           # desktop window against your real machine (needs bun)
+pnpm test              # parser, view, wire, and page logic; no processes harmed
 pnpm typecheck
 ```
+
+`barlo` is a git dependency, and pnpm refuses to install one with a lifecycle
+script unless it is allowlisted — hence `pnpm-workspace.yaml`. Nothing is
+actually built at install time: barlo commits its declarations and resolves to
+TypeScript source under bun.
 
 ## How it works
 
@@ -99,64 +117,61 @@ pnpm typecheck
 
   On a typical machine this is the difference between 54 rows and 4.
 - **Two front ends, one collector**: `core.ts` owns every subprocess and parser;
-  the TUI and the web server are both just views over it. The web server polls
-  once and fans the result out to all open tabs — a collector per tab would give
-  each of them a different (and wrong) CPU baseline. Rows reach the browser with
-  the raw numbers *and* the strings formatted by `core.ts`/`view.ts`, so the page
-  never reimplements a formatter. In the noise filter's place it ships a `noise`
-  flag per row, so the toggle is instant instead of a round trip.
+  the TUI and the desktop app are both just views over it. The app runs one
+  collector for its one window and pushes each sweep into the page — a second
+  collector would hand it a different (and wrong) CPU baseline, since the CPU
+  column is a delta against the previous sample. Overlapping sweeps join the one
+  already running rather than stacking, because `lsof` on a busy machine can
+  outlast the interval. Rows reach the page with the raw numbers *and* the
+  strings formatted by `core.ts`/`view.ts` (`wire.ts`), so the page never
+  reimplements a formatter. In the noise filter's place it ships a `noise` flag
+  per row, so the toggle is instant instead of a round trip.
 
 ## Install
 
 **Binary** — from the [latest release](https://github.com/cbcruk/ports-cli/releases).
-Reaching for a binary means you want the GUI, so the binaries carry the **browser UI
+Reaching for a binary means you want the GUI, so the binaries are the **desktop app
 only** and start it with no flag at all:
 
 ```bash
 tar -xzf ports-darwin-arm64.tar.gz && ./ports    # window opens
 ```
 
-Each archive holds one self-contained `ports`; no node required. They are built on Linux
-and are **not codesigned**, so macOS quarantines them — clear it once with
+Each archive holds one self-contained `ports`; no node, no npm, and no bundled
+Chromium — it drives the browser already on the machine. They are built on Linux and
+are **not codesigned**, so macOS quarantines them — clear it once with
 `xattr -d com.apple.quarantine ./ports`.
 
-**npm** — needs node, and gives you both UIs: `ports` for the TUI, `ports --web` for the
-browser. That flag only exists here; in the binaries there is nothing to opt out of.
+**npm** — needs node, and gives you the TUI. The GUI is not here: barlo is built on
+`Bun.serve` and `Bun.spawn`, so it cannot run under node, which is why the desktop app
+ships as a compiled binary instead of a flag on this package.
 
 ## Packaging
 
 ```bash
-pnpm build              # dist/index.js — the npm `ports` bin, both UIs, deps external
-pnpm build:binary       # ./ports — standalone web UI, needs bun
-pnpm build:sea          # build/ports — standalone web UI, node only
+pnpm build              # dist/index.js — the npm `ports` bin, TUI only, deps external
+pnpm build:binary       # ./ports — the desktop app, needs bun
 ```
 
-Both standalone builds compile `src/web-entry.ts`, so a binary is the browser UI and nothing
-else. Sizes, uncompressed / as shipped in a release archive:
+The two builds compile different entry points, and the split is not a preference: `barlo`
+is bun-only, so it may be imported from `src/web-entry.ts` and nowhere else. `pnpm build`
+runs esbuild with `--platform=node` over `src/index.tsx` and never sees it.
 
-| build | target | size | archive |
-| --- | --- | --- | --- |
-| `build:binary` (bun) | darwin-arm64 | 59 MB | 22 MB |
-| `build:binary` (bun) | linux-x64 | 95 MB | 37 MB |
-| `build:sea` (node) | host only | 120 MB | — |
+Sizes, uncompressed / as shipped in a release archive:
 
-Nearly all of that is the embedded runtime, not the app: dropping the TUI trimmed only ~2 MB
-off the bun build. Releases ship the bun one because it is the smaller runtime; `build:sea`
-exists for building without bun at all.
+| target | size | archive |
+| --- | --- | --- |
+| darwin-arm64 | 61 MB | 25 MB |
+| darwin-x64 | 68 MB | 28 MB |
+| linux-arm64 | 79 MB | 35 MB |
+| linux-x64 | 79 MB | 36 MB |
 
-`build:binary` needs `bun`. Ink dynamically imports `react-devtools-core`, which bun's bundler
-resolves eagerly — it is a devDependency for that reason alone.
+Nearly all of that is the embedded bun runtime, not the app. Chromium is not in there —
+the app drives the browser already installed on the machine, which is the whole reason a
+GUI fits in 25 MB.
 
-`build:sea` uses Node's own [single executable](https://nodejs.org/api/single-executable-applications.html)
-support, so it needs no toolchain beyond node. Leaving the TUI out is also what makes it
-possible at all: SEA injects a *CommonJS* bundle, and the TUI's dependency chain
-(`ink` → `yoga-layout`) uses top-level await, which CommonJS cannot express — bundling it fails
-outright. The web server depends on nothing but Hono and node builtins, so it packages cleanly
-(a 127 KB bundle; the remaining ~120 MB is the embedded node runtime, which is why this binary is
-larger than the bun one for identical contents).
-
-On macOS the script strips the signature from `node` before injection and re-signs afterwards —
-without that the binary is killed on launch.
+Ink dynamically imports `react-devtools-core`, which bun's bundler resolves eagerly — it is
+a devDependency for that reason alone.
 
 ### Releases
 
@@ -168,6 +183,9 @@ into the binary and would otherwise be wrong.
 
 ## Notes / limits
 
-- macOS 14+ target. Verified end-to-end on macOS (Darwin 25) — `lsof`/`ps` parsing and the live path both.
+- macOS 14+ target. `lsof`/`ps` parsing and the live path are verified end-to-end on macOS (Darwin 25).
+- The window is **not** yet verified on macOS. barlo is verified on Linux/arm64 only; its macOS and
+  Windows browser lookups are written from the documented install locations but unexercised, so that
+  is the first thing to check on a Mac before cutting a release.
 - "Open owning terminal" from the GUI has no clean CLI equivalent (you can't portably focus a terminal tab); dropped in favor of the `o` key, which opens the port's URL.
 - Native upgrade path: replace the lsof/ps subprocesses with a napi-rs `libproc` binding (`proc_listpids` + `proc_pidfdinfo`) — zero subprocess spawns per tick.

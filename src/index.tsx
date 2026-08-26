@@ -36,21 +36,15 @@ if (argv.includes('-v') || argv.includes('--version')) {
   console.log(`ports — live view of localhost dev servers
 
 usage: ports [-a | --all]
-       ports --web [--port <n>] [--tab] [--no-open]
 
   -a, --all      include OS daemons, GUI apps, ephemeral-only listeners
-      --web      serve the browser UI on loopback instead of the TUI
-      --port <n> port for --web (default 7331, falls back if taken)
-      --tab      open a normal browser tab instead of an app window
-      --no-open  do not open anything for --web
   -v, --version  print version
   -h, --help     print this help
 
-keys: ↑↓ select · k kill · x force · o open · s sort · / filter · q quit`)
-} else if (argv.includes('--web')) {
-  // No TTY needed here — the UI lives in the browser.
-  const { startWeb, webOptionsFromArgv } = await import('./web.ts')
-  await startWeb(webOptionsFromArgv(argv))
+keys: ↑↓ select · k kill · x force · o open · s sort · / filter · q quit
+
+For the same thing in a desktop window, grab a standalone binary from the
+releases page — it needs no node, and opens a window with no flags.`)
 } else if (!process.stdout.isTTY) {
   // Nothing to draw on — the only case worth refusing outright.
   console.error('ports needs an interactive terminal to run (stdout is not a TTY)')

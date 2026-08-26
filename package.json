@@ -1,7 +1,7 @@
 {
   "name": "ports",
   "version": "1.0.0",
-  "description": "TUI for localhost dev servers",
+  "description": "TUI and desktop app for localhost dev servers",
   "bin": {
     "ports": "./dist/index.js"
   },
@@ -11,11 +11,11 @@
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --platform=node --format=esm --target=node20 --packages=external --define:__VERSION__='\"'\"$npm_package_version\"'\"' --outfile=dist/index.js && chmod +x dist/index.js",
     "build:binary": "bun build src/web-entry.ts --compile --define __VERSION__='\"'\"$npm_package_version\"'\"' --outfile ports",
-    "build:sea": "bash scripts/build-sea.sh",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/web.test.ts && tsx src/smoke.tsx",
-    "dev": "tsx src/index.tsx"
+    "test": "tsx src/core.test.ts && tsx src/view.test.ts && tsx src/wire.test.ts && tsx src/page.test.ts && tsx src/smoke.tsx",
+    "dev": "tsx src/index.tsx",
+    "dev:app": "bun src/web-entry.ts"
   },
   "keywords": [
     "ports",
@@ -27,20 +27,18 @@
   "author": "",
   "license": "ISC",
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
   "dependencies": {
-    "@hono/node-server": "^2.1.0",
-    "hono": "^4.13.1",
     "ink": "^5.2.1",
     "react": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/react": "^18.3.31",
+    "barlo": "github:cbcruk/barlo#1bec85742202ab52a2c5f60b85d4fdc76edf04bb",
     "esbuild": "^0.28.1",
-    "postject": "1.0.0-alpha.6",
     "react-devtools-core": "^7.0.1",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }
