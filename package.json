@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun src/core.test.ts && bun src/view.test.ts && bun src/wire.test.ts && bun src/page.test.ts && bun src/smoke.tsx",
     "dev": "bun src/index.tsx",
-    "dev:app": "bun src/web-entry.ts"
+    "dev:app": "bun src/web-entry.ts",
+    "test:app": "bun src/app.smoke.ts"
   },
   "keywords": [
     "ports",
@@ -34,7 +35,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/react": "^18.3.31",
-    "barlo": "github:cbcruk/barlo#1bec85742202ab52a2c5f60b85d4fdc76edf04bb",
+    "barlo": "github:cbcruk/barlo#4f2031f76004eb6d2e77c519d9c1e343bfef8dcc",
     "react-devtools-core": "^7.0.1",
     "typescript": "^5.9.3"
   }

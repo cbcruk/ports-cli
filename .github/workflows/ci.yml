@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    # lsof and ps are what this reads, so Linux and macOS are the platforms —
+    # the same two the release workflow cross-compiles for. The GUI half is
+    # what actually differs between them: barlo has to find the system browser
+    # and open an app window, and the page has to render in it.
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run typecheck
+
+      # Unit tests and the ink render: no window, no lsof.
+      - run: bun run test
+
+      # Which browser barlo resolved, and from where.
+      - name: Report the browser barlo found
+        run: bun -e "console.log((await import('barlo')).findChrome())"
+
+      # Linux runners have no display; macOS has a desktop session.
+      - name: Drive the desktop app in a real window
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a --server-args="-screen 0 1280x1024x24" bun run test:app
+          else
+            bun run test:app
+          fi
+
+      - name: Build
+        run: |
+          bun run build
+          bun run build:binary
+          ./ports --version
