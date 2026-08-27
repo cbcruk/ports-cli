@@ -52,6 +52,9 @@ const app = must(await launch({
   title: 'ports',
   width: 1180,
   height: 760,
+  // The 20s default suits a desktop. A CI runner under xvfb, sharing two cores
+  // with another job, sometimes needs longer before that is a real failure.
+  timeout: 60_000,
   // Containers and CI images ship a 64MB /dev/shm, which this page's fonts
   // outgrow — Chrome then dies with "No space left on device". Harmless on a
   // real desktop, so it stays here rather than in the app itself.
