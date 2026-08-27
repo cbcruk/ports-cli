@@ -34,9 +34,28 @@ const INTERVAL_MS = 1500
  * One collector for the one window: the CPU column is a delta against the
  * previous sample, so a second collector would hand the page a different (and
  * wrong) baseline.
+ *
+ * @returns the process exit code
  */
-async function start(): Promise<void> {
-  const app = await launch({ title: 'ports', width: 1180, height: 760 })
+async function start(): Promise<number> {
+  const launched = await launch({ title: 'ports', width: 1180, height: 760 })
+
+  // A GUI that cannot open its window has nothing to say but why, and each
+  // failure has a different thing for the reader to do about it.
+  if (launched.isErr()) {
+    console.error(
+      launched.error.match({
+        ChromeNotFoundError: () =>
+          'No Chrome, Chromium, Edge, or Brave found. Install one, or set BARLO_CHROME_PATH to a browser binary.',
+        LaunchTimeoutError: (e) =>
+          `The browser did not come up (${e.phase}, waited ${e.ms}ms). Try again, or set BARLO_CHROME_PATH.`,
+        BrowserGoneError: (e) => `The browser exited during startup: ${e.message}`,
+      }),
+    )
+    return 1
+  }
+
+  const app = launched.unwrap()
   app.serveEmbedded({ 'index.html': PAGE })
 
   const { collect } = createCollector()
@@ -52,8 +71,9 @@ async function start(): Promise<void> {
       const msg = e instanceof Error ? e.message : String(e)
       payload = { error: msg.includes('lsof') ? 'lsof not found — required on macOS/Linux' : msg }
     }
-    // Throws once every window is gone; the exit handler is already on its way.
-    await app.evaluate((p: unknown) => (window as any).__ports(p), payload).catch(() => {})
+    // Fails once every window is gone; the exit handler is already on its way,
+    // so the Err is the expected end of the loop rather than something to report.
+    await app.evaluate((p: unknown) => (window as any).__ports(p), payload)
   }
 
   /**
@@ -93,6 +113,7 @@ async function start(): Promise<void> {
   await app.load('index.html')
   await tick()
   setInterval(() => void tick(), INTERVAL_MS)
+  return 0
 }
 
 const argv = process.argv.slice(2)
@@ -112,8 +133,14 @@ flag to pass. Needs an installed Chrome, Chromium, Edge, or Brave; set
 BARLO_CHROME_PATH to point at one it does not find. For the TUI, install the
 npm package and run \`ports\`.`)
 } else {
-  start().catch((e: unknown) => {
-    console.error(e instanceof Error ? e.message : String(e))
-    process.exitCode = 1
-  })
+  // start() reports its own failures, so anything reaching here is a bug.
+  start().then(
+    (code) => {
+      if (code !== 0) process.exitCode = code
+    },
+    (e: unknown) => {
+      console.error(e instanceof Error ? e.message : String(e))
+      process.exitCode = 1
+    },
+  )
 }

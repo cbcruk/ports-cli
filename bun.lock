@@ -11,7 +11,7 @@
       "devDependencies": {
         "@types/node": "^26.1.1",
         "@types/react": "^18.3.31",
-        "barlo": "github:cbcruk/barlo#4f2031f76004eb6d2e77c519d9c1e343bfef8dcc",
+        "barlo": "github:cbcruk/barlo#034497033e65ea9bf7d4af7899295f88c6db631a",
         "react-devtools-core": "^7.0.1",
         "typescript": "^5.9.3",
       },
@@ -34,7 +34,9 @@
 
     "auto-bind": ["auto-bind@5.0.1", "", {}, "sha512-ooviqdwwgfIfNmDwo94wlshcdzfO64XV0Cg6oDsDYBJfITDz1EngD2z7DkbvCWn+XIMsIqW27sEVF6qcpJrRcg=="],
 
-    "barlo": ["barlo@github:cbcruk/barlo#4f2031f", {}, "cbcruk-barlo-4f2031f", "sha512-HwiIUE470TMAGzJoAmLanWvxzDGctV0s0ifnDtLuslz0PmEHg+6l2BXtl9LOiiNU7Agh2ROIdJC2oo45b7B/YQ=="],
+    "barlo": ["barlo@github:cbcruk/barlo#0344970", { "dependencies": { "better-result": "^3.0.1" } }, "cbcruk-barlo-0344970", "sha512-0/QH+iCUICDUCLVmxRs9VHk9htMo26E6+mOAaQGd1SFp8A1KgsL7CjqRw7IEkqvnqvPer5tYsJ9yzNZL+xXn+Q=="],
+
+    "better-result": ["better-result@3.0.1", "", {}, "sha512-rnCeqEXkKPHmz5MO5ZroPRDyHe4YvlNPyy7qj8cVcWs/GnvSvC3086G74/220W+wWcIWlXgzvcjskFV0A4blUQ=="],
 
     "chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
 
