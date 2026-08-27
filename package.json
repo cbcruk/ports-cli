@@ -35,7 +35,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/react": "^18.3.31",
-    "barlo": "github:cbcruk/barlo#7a852adaed0596ad27bfcb33ddf4b97630b489a9",
+    "barlo": "github:cbcruk/barlo#aac4de1b29187cab461adc1aed1d69e316e1256f",
     "react-devtools-core": "^7.0.1",
     "typescript": "^5.9.3"
   }
