@@ -2,7 +2,7 @@ import assert from 'node:assert'
 import {
   parseClock, detectFramework, parseListeners, parsePs, parseCwd,
   createCollector, fmtUptime, isSystemProcess, isEphemeralOnly,
-  killPid, isAlive, fmtKill, findAppModeBrowser, openApp, type Exec, type Signal,
+  killPid, isAlive, fmtKill, type Exec, type Signal,
 } from './core.ts'
 
 let pass = 0
@@ -157,39 +157,5 @@ ok('fmtKill exit', fmtKill({ sent: true, exited: true }, 3000, 9, false).include
 ok('fmtKill perm', fmtKill(denied, 3000, 9, false).includes('sudo'))
 ok('fmtKill ignored suggests -9', fmtKill(stubborn, 3000, 9, false).includes('-9'))
 ok('fmtKill sigkill survivor differs', fmtKill(stubborn, 3000, 9, true).includes('survived'))
-
-// ── app-mode browser ── (chromeless window when a Chromium browser is installed)
-const has = (...installed: string[]) => (c: string) => (installed.includes(c) ? c : null)
-const none = () => null
-
-ok('finds chrome on macOS', findAppModeBrowser('darwin', has('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')) !== null)
-ok('prefers chrome over edge', findAppModeBrowser('darwin', has(
-  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-))!.includes('Google Chrome'))
-ok('finds chromium on linux', findAppModeBrowser('linux', has('chromium')) === 'chromium')
-ok('none installed is null', findAppModeBrowser('darwin', none) === null)
-ok('unknown platform is null', findAppModeBrowser('win32', has('chrome')) === null)
-
-// openApp: launches a window, or falls back without pretending it succeeded
-const launched: { cmd: string; args: string[] }[] = []
-const launch = (cmd: string, args: string[]) => void launched.push({ cmd, args })
-const opened: string[] = []
-const fakeExec = async (_c: string, a: string[]) => { opened.push(a[0]); return '' }
-
-const url = 'http://127.0.0.1:7331/?t=abc'
-ok('app mode used when available',
-  openApp(url, { platform: 'linux', lookup: has('chromium'), launch, exec: fakeExec }) === 'app')
-ok('launched with --app', launched[0].args[0] === `--app=${url}`)
-ok('app mode did not also open a tab', opened.length === 0)
-
-ok('falls back to the browser',
-  openApp(url, { platform: 'linux', lookup: none, launch, exec: fakeExec }) === 'browser')
-ok('fallback opened the url', opened[0] === url)
-ok('fallback did not launch a window', launched.length === 1)
-
-ok('--tab skips app mode',
-  openApp(url, { tab: true, platform: 'linux', lookup: has('chromium'), launch, exec: fakeExec }) === 'browser')
-ok('--tab did not launch a window', launched.length === 1)
 
 console.log(`\n✓ ${pass} assertions passed`)

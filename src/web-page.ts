@@ -1,9 +1,15 @@
 /**
- * The single-page client for `ports --web`.
+ * The single page shown in the app window.
  *
- * Served as one self-contained document — no bundler, no build step, no CDN.
- * The auth token is not baked in: the page reads it from its own query string,
- * so the HTML itself is not a secret and a reload keeps working.
+ * Served as one self-contained document — no bundler, no build step, no CDN —
+ * and embedded in the binary as a string, which is what lets it survive
+ * `bun build --compile` (a compiled binary has no folder to serve from).
+ *
+ * There is no HTTP API behind it. Killing a process and opening a port go over
+ * barlo's RPC bridge (`window.__kill`, `window.__openPort`), which is installed
+ * by CDP into this window's execution context only — so neither is reachable by
+ * another local process, another origin, or a rebound DNS name. Rows are
+ * pushed the other way, into `window.__ports`.
  *
  * Rows are rendered with DOM APIs rather than `innerHTML`, because a process
  * command line is attacker-influenced text that must never be parsed as markup.
@@ -77,7 +83,7 @@ export const PAGE = /* html */ `<!doctype html>
 <div class="wrap">
   <header>
     <h1>🔌 ports</h1>
-    <span class="count" id="count">connecting…</span>
+    <span class="count" id="count">starting…</span>
     <span class="dot" id="dot"></span>
   </header>
 
@@ -108,10 +114,14 @@ export const PAGE = /* html */ `<!doctype html>
 </div>
 
 <script>
-const token = new URLSearchParams(location.search).get('t') || ''
+// Wrapped, because a classic script's top-level declarations land on \`window\`
+// — which is where the runtime installs its bridge. An unwrapped
+// \`function kill\` silently replaced \`window.kill\` with itself.
+;(() => {
 const $ = (id) => document.getElementById(id)
 let rows = []
 let sortKey = 'port'
+let lastPush = 0
 
 const cmp = {
   port: (a, b) => a.port - b.port,
@@ -159,9 +169,10 @@ function render() {
     const link = document.createElement('a')
     link.className = 'port'
     link.href = 'http://localhost:' + r.port
-    link.target = '_blank'
-    link.rel = 'noopener'
     link.textContent = r.display.ports
+    // This is an app window with no tab strip to open into, so hand the URL to
+    // the platform opener instead — the same thing the TUI's \`o\` key does.
+    link.onclick = (e) => { e.preventDefault(); window.__openPort(r.port) }
     portTd.append(link)
     tr.append(portTd)
 
@@ -197,38 +208,41 @@ function killButton(r, force) {
 async function kill(r, force) {
   $('status').textContent = (force ? 'SIGKILL' : 'SIGTERM') + ' → :' + r.port + ' …'
   try {
-    const res = await fetch('/api/kill', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
-      body: JSON.stringify({ pid: r.pid, port: r.port, force }),
-    })
-    const out = await res.json()
-    $('status').textContent = out.message || ('kill failed (' + res.status + ')')
+    $('status').textContent = await window.__kill(r.pid, force)
   } catch (e) {
     $('status').textContent = 'kill failed: ' + e.message
   }
 }
 
-function connect() {
-  const es = new EventSource('/api/events?t=' + encodeURIComponent(token))
-  es.addEventListener('rows', (e) => {
-    $('dot').className = 'dot live'
-    rows = JSON.parse(e.data)
-    render()
-  })
-  es.addEventListener('fail', (e) => { $('status').textContent = e.data })
-  es.onerror = () => {
-    $('dot').className = 'dot down'
-    $('count').textContent = 'disconnected'
+// Pushed from the runtime once per poll. Defined before the first push can
+// land, since the page is loaded after the bridge is installed.
+window.__ports = (payload) => {
+  lastPush = Date.now()
+  $('dot').className = 'dot live'
+  if (payload.error) {
+    $('status').textContent = payload.error
+    return
   }
+  rows = payload.rows
+  render()
 }
+
+// Nothing reconnects here — the window and the runtime live and die together —
+// so a stalled feed means the runtime is wedged, and saying so beats a table
+// that silently stops moving.
+setInterval(() => {
+  if (lastPush && Date.now() - lastPush > 8000) {
+    $('dot').className = 'dot down'
+    $('count').textContent = 'not responding'
+  }
+}, 2000)
 
 for (const th of document.querySelectorAll('th[data-sort]')) {
   th.onclick = () => { sortKey = th.dataset.sort; render() }
 }
 $('filter').oninput = render
 $('all').onchange = render
-connect()
+})()
 </script>
 </body>
 </html>
