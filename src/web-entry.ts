@@ -50,6 +50,7 @@ async function start(): Promise<number> {
         LaunchTimeoutError: (e) =>
           `The browser did not come up (${e.phase}, waited ${e.ms}ms). Try again, or set BARLO_CHROME_PATH.`,
         BrowserGoneError: (e) => `The browser exited during startup: ${e.message}`,
+        ProtocolError: (e) => `The browser refused ${e.method} during startup: ${e.message}`,
       }),
     )
     return 1

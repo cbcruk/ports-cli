@@ -92,7 +92,7 @@ ok('rows carry preformatted display strings', (await text('#rows tr td.num')) ==
 // ── the bridge survived the page ──
 // A classic script's top-level declarations land on `window`, over the bridge.
 // The page is wrapped so it declares nothing; barlo reports it if that changes.
-ok('no exposed name was shadowed', (await win.shadowedFunctions()).length === 0)
+ok('no exposed name was shadowed', must(await win.shadowedFunctions()).length === 0)
 
 // ── filter ──
 must(await app.evaluate(`(() => {
