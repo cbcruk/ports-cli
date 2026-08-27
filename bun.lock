@@ -11,7 +11,7 @@
       "devDependencies": {
         "@types/node": "^26.1.1",
         "@types/react": "^18.3.31",
-        "barlo": "github:cbcruk/barlo#1bec85742202ab52a2c5f60b85d4fdc76edf04bb",
+        "barlo": "github:cbcruk/barlo#4f2031f76004eb6d2e77c519d9c1e343bfef8dcc",
         "react-devtools-core": "^7.0.1",
         "typescript": "^5.9.3",
       },
@@ -20,7 +20,7 @@
   "packages": {
     "@alcalzone/ansi-tokenize": ["@alcalzone/ansi-tokenize@0.1.3", "", { "dependencies": { "ansi-styles": "^6.2.1", "is-fullwidth-code-point": "^4.0.0" } }, "sha512-3yWxPTq3UQ/FY9p1ErPxIyfT64elWaMvM9lIHnaqpyft63tkxodF5aUElYHrdisWve5cETkh1+KBw1yJuW0aRw=="],
 
-    "@types/node": ["@types/node@26.3.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-L3fgrnchriRC2ExBflb8j4uZZURHZfQsmQeyVzhjcHW4kkwVyo8/0h1B2MVzMTrYUJYu6G7EWs14hW/L9putqw=="],
+    "@types/node": ["@types/node@26.4.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ=="],
 
     "@types/prop-types": ["@types/prop-types@15.7.15", "", {}, "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw=="],
 
@@ -34,7 +34,7 @@
 
     "auto-bind": ["auto-bind@5.0.1", "", {}, "sha512-ooviqdwwgfIfNmDwo94wlshcdzfO64XV0Cg6oDsDYBJfITDz1EngD2z7DkbvCWn+XIMsIqW27sEVF6qcpJrRcg=="],
 
-    "barlo": ["barlo@github:cbcruk/barlo#1bec857", {}, "cbcruk-barlo-1bec857", "sha512-FKBRVa86PwWvmaPUjrHWXE4qq1eDjuxWg6aLcnoyCs0V4U9nFHCtTQYkoS+iiuqKPEWGbfzm+d4cRyRtmooZMw=="],
+    "barlo": ["barlo@github:cbcruk/barlo#4f2031f", {}, "cbcruk-barlo-4f2031f", "sha512-HwiIUE470TMAGzJoAmLanWvxzDGctV0s0ifnDtLuslz0PmEHg+6l2BXtl9LOiiNU7Agh2ROIdJC2oo45b7B/YQ=="],
 
     "chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
 
