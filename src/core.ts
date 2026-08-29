@@ -1,14 +1,47 @@
+/**
+ * Enumerates localhost listeners and the actions that operate on them.
+ *
+ * The data layer both front ends share: pure parsers for `lsof`/`ps` output, a
+ * stateful collector that turns them into {@link Row}s, the kill/open actions,
+ * and the formatters the TUI and the app window both render with.
+ *
+ * @example List every listening dev server once
+ * ```ts
+ * import { createCollector } from './core.ts'
+ *
+ * const { collect } = createCollector()
+ * for (const row of await collect()) console.log(row.port, row.framework)
+ * ```
+ *
+ * @module
+ */
 import { execFile } from 'node:child_process'
 
+/**
+ * One localhost listener, collapsed to a single process.
+ *
+ * A process listening on several ports yields one row rather than several: the
+ * lowest port is the one you would browse to, and the rest stay in
+ * {@link Row.ports}.
+ */
 export type Row = {
-  port: number // primary (lowest) listening port
-  ports: number[] // every port this pid listens on, ascending
+  /** Primary port — the lowest one the process listens on. */
+  port: number
+  /** Every port this pid listens on, ascending. */
+  ports: number[]
+  /** Process id of the listener. */
   pid: number
+  /** Full argv / command string, as reported by `ps`. */
   command: string
+  /** Framework name from {@link detectFramework}, or `'—'` when unrecognised. */
   framework: string
+  /** Basename of the process's working directory, or `''` when unknown. */
   project: string
-  cpu: number | null // instantaneous %, null on first sample
+  /** Instantaneous %CPU, or `null` on the first sample — there is no baseline to diff against yet. */
+  cpu: number | null
+  /** Resident set size in MB. */
   memMB: number
+  /** Seconds elapsed since the process started. */
   uptimeSecs: number
 }
 
@@ -39,6 +72,15 @@ const defaultExec: Exec = (cmd, args) =>
  *
  * @param s clock string, e.g. `"11-23:04:05"`, `"01:30"`, or `"5.42"`
  * @returns total elapsed seconds
+ *
+ * @example Every field width `ps` can emit
+ * ```ts
+ * import { parseClock } from './core.ts'
+ *
+ * parseClock('5.42') // 5.42
+ * parseClock('01:30') // 90
+ * parseClock('11-23:04:05') // 1033445
+ * ```
  */
 export function parseClock(s: string): number {
   s = s.trim()
@@ -87,6 +129,15 @@ const RULES: [RegExp, string][] = [
  *
  * @param command full argv / command string of the process
  * @returns the framework name, or `'—'` when nothing matches
+ *
+ * @example Specific rules win over the bare-runtime fallback
+ * ```ts
+ * import { detectFramework } from './core.ts'
+ *
+ * detectFramework('node /p/web/node_modules/.bin/next dev') // 'Next.js'
+ * detectFramework('/usr/local/bin/node server.js') // 'Node'
+ * detectFramework('/usr/sbin/cupsd -l') // '—'
+ * ```
  */
 export function detectFramework(command: string): string {
   for (const [re, name] of RULES) if (re.test(command)) return name
@@ -114,8 +165,12 @@ export function isSystemProcess(command: string): boolean {
   return SYSTEM_RULES.some((re) => re.test(command))
 }
 
-// IANA ephemeral range. workerd/Vite open transient control sockets here; a process
-// listening *only* on such ports is plumbing, not something you'd browse to.
+/**
+ * First port of the IANA ephemeral range.
+ *
+ * workerd and Vite open transient control sockets here; a process listening
+ * *only* on such ports is plumbing, not something you would browse to.
+ */
 export const EPHEMERAL_MIN = 49152
 
 /**
@@ -205,6 +260,12 @@ export function parseCwd(out: string): Map<number, string> {
 
 // ── collector (stateful: holds prev CPU sample + cwd cache) ─────────────────
 
+/** A stateful snapshotter of localhost listeners, built by {@link createCollector}. */
+export type Collector = {
+  /** Takes one snapshot, reusing the previous call's CPU sample and cwd cache. */
+  collect: () => Promise<Row[]>
+}
+
 /**
  * Builds a stateful collector that snapshots current localhost listeners.
  *
@@ -213,9 +274,19 @@ export function parseCwd(out: string): Map<number, string> {
  * pid's cwd so the project name is resolved only once.
  *
  * @param exec command runner (defaults to a real `execFile`); inject to test
- * @returns an object exposing `collect()`
+ * @returns a collector whose `collect()` shares one CPU baseline across calls
+ *
+ * @example Two ticks, one baseline
+ * ```ts
+ * import { createCollector } from './core.ts'
+ *
+ * const { collect } = createCollector()
+ * await collect() // every row's `cpu` is null — nothing to diff against yet
+ * await new Promise((r) => setTimeout(r, 1500))
+ * await collect() // `cpu` is now a real percentage
+ * ```
  */
-export function createCollector(exec: Exec = defaultExec) {
+export function createCollector(exec: Exec = defaultExec): Collector {
   let prev = new Map<number, { cpuSecs: number; wallMs: number }>()
   const cwdCache = new Map<number, string>()
 
@@ -283,13 +354,26 @@ export function createCollector(exec: Exec = defaultExec) {
 
 // ── actions ─────────────────────────────────────────────────────────────────
 
-// Injectable so the wait loop can be tested without real processes.
+/**
+ * Sends a signal to a pid, or probes it with signal `0`.
+ *
+ * Injectable so the kill wait loop can be tested without real processes.
+ */
 export type Signal = (pid: number, sig: NodeJS.Signals | 0) => void
 const defaultSignal: Signal = (pid, sig) => void process.kill(pid, sig)
 
+/**
+ * The result of a {@link killPid} attempt.
+ *
+ * Delivering a signal and the process actually dying are separate facts, so
+ * they are separate fields — a SIGTERM handler may swallow the signal.
+ */
 export type KillOutcome = {
+  /** Whether the signal was delivered at all. */
   sent: boolean
+  /** Whether the process was confirmed gone before the wait budget ran out. */
   exited: boolean
+  /** Why it did not exit: `EPERM`, `ESRCH`, a swallowed signal, or an unclassified error. */
   reason?: 'not-permitted' | 'no-such-process' | 'ignored' | 'unknown'
 }
 
@@ -331,6 +415,16 @@ const errReason = (e: unknown): KillOutcome['reason'] => {
  * @param force send `SIGKILL` instead of `SIGTERM`
  * @param opts `waitMs` total budget, `pollMs` poll interval, injectable `signal`
  * @returns the resolved {@link KillOutcome}
+ *
+ * @example Escalate to SIGKILL only when SIGTERM is ignored
+ * ```ts
+ * import { createCollector, killPid, fmtKill } from './core.ts'
+ *
+ * const [row] = await createCollector().collect()
+ * let outcome = await killPid(row.pid)
+ * if (outcome.reason === 'ignored') outcome = await killPid(row.pid, true)
+ * console.log(fmtKill(outcome, row.port, row.pid, true))
+ * ```
  */
 export async function killPid(
   pid: number,

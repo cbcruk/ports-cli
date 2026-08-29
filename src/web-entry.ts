@@ -16,6 +16,8 @@
  * Needs bun: barlo is built on `Bun.serve` and `Bun.spawn`, which is why this
  * entry point is compiled with `bun build --compile` and never bundled into the
  * npm build.
+ *
+ * @module
  */
 import { launch } from 'barlo'
 import { createCollector, fmtKill, killPid, openPort } from './core.ts'
@@ -62,6 +64,11 @@ async function start(): Promise<number> {
   const { collect } = createCollector()
   let rows: WireRow[] = []
 
+  /**
+   * Collects one snapshot and pushes it into the page as `{ rows }`, or as
+   * `{ error }` when `lsof` fails — the window stays up either way, since a
+   * transient failure is not worth tearing it down for.
+   */
   async function poll(): Promise<void> {
     let payload: { rows: WireRow[] } | { error: string }
     try {

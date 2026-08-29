@@ -1,11 +1,36 @@
+/**
+ * The terminal front end: one Ink component that owns the poll loop, the
+ * keyboard bindings, and the kill confirmation.
+ *
+ * @example Render the TUI against a fixed data source
+ * ```tsx
+ * import { render } from 'ink'
+ * import { App } from './tui.tsx'
+ * import type { Row } from './core.ts'
+ *
+ * const rows: Row[] = []
+ * render(<App collect={async () => rows} intervalMs={1000} />)
+ * ```
+ *
+ * @module
+ */
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Text, useApp, useInput, useStdin } from 'ink'
 import { createCollector, killPid, fmtKill, openPort, type Row } from './core.ts'
 import { sortRows, filterRows, filterSystem, resolveSelection, rowCells, headerCells, SORT_KEYS, FW_COLOR, type SortKey } from './view.ts'
 
+/** Data source for the TUI: one snapshot of every localhost listener. */
 type Collect = () => Promise<Row[]>
 
-type Props = { collect?: Collect; intervalMs?: number; showAll?: boolean }
+/** Props for {@link App}. */
+type Props = {
+  /** Data source; defaults to a real {@link createCollector}. */
+  collect?: Collect
+  /** Refresh interval in ms (default `1500`). */
+  intervalMs?: number
+  /** Include system/GUI/ephemeral listeners, as `--all` does (default `false`). */
+  showAll?: boolean
+}
 
 /**
  * The live Ink TUI: a self-refreshing table of localhost dev servers with
@@ -16,11 +41,10 @@ type Props = { collect?: Collect; intervalMs?: number; showAll?: boolean }
  * refresh landing mid-interaction can't retarget the wrong process. `k`/`x`
  * arm a `y`/`n` confirmation before signalling.
  *
- * @param props.collect data source; defaults to a real {@link createCollector}
- * @param props.intervalMs refresh interval in ms (default `1500`)
- * @param props.showAll include system/GUI/ephemeral listeners (default `false`)
+ * @param props see {@link Props}
+ * @returns the Ink element tree for one frame
  */
-export function App({ collect, intervalMs = 1500, showAll = false }: Props) {
+export function App({ collect, intervalMs = 1500, showAll = false }: Props): React.JSX.Element {
   const { exit } = useApp()
   const { isRawModeSupported } = useStdin()
   const collectRef = useRef<Collect | null>(collect ?? null)
