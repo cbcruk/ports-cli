@@ -4,6 +4,16 @@
  * Kept apart from `core.ts` (which owns the subprocesses) and from
  * `web-entry.ts` (which owns the window) so the shape can be unit-tested
  * without a Chrome anywhere in sight.
+ *
+ * @example Prepare a snapshot for the page
+ * ```ts
+ * import { createCollector } from './core.ts'
+ * import { toWire } from './wire.ts'
+ *
+ * const rows = (await createCollector().collect()).map(toWire)
+ * ```
+ *
+ * @module
  */
 import { fmtCpu, fmtUptime, isEphemeralOnly, isSystemProcess, type Row } from './core.ts'
 import { fmtPorts } from './view.ts'
@@ -14,7 +24,9 @@ import { fmtPorts } from './view.ts'
  * page never has to reimplement the formatters in `core.ts`/`view.ts`.
  */
 export type WireRow = Row & {
+  /** `true` for a system/GUI or ephemeral-only listener, which the client hides by default. */
   noise: boolean
+  /** Cells already run through the shared formatters, ready to drop into the table. */
   display: { ports: string; cpu: string; mem: string; up: string }
 }
 

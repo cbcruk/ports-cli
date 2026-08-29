@@ -1,6 +1,28 @@
+/**
+ * View logic for the terminal table: sorting, filtering, selection, and the
+ * plain-string cell layout the Ink layer colors.
+ *
+ * Everything here is pure, so the table can be asserted on as text without
+ * rendering a terminal.
+ *
+ * @example Build the visible rows for one frame
+ * ```ts
+ * import { createCollector } from './core.ts'
+ * import { filterSystem, sortRows, filterRows, rowCells, formatLine } from './view.ts'
+ *
+ * const rows = await createCollector().collect()
+ * const view = filterRows(sortRows(filterSystem(rows, false), 'cpu'), 'vite')
+ * for (const r of view) console.log(formatLine(rowCells(r), process.stdout.columns))
+ * ```
+ *
+ * @module
+ */
 import { type Row, fmtUptime, fmtCpu, isSystemProcess, isEphemeralOnly } from './core.ts'
 
+/** Column the list can be ordered by. */
 export type SortKey = 'port' | 'cpu' | 'mem' | 'uptime'
+
+/** Every {@link SortKey}, in the order the `s` key cycles through them. */
 export const SORT_KEYS: SortKey[] = ['port', 'cpu', 'mem', 'uptime']
 
 /**
@@ -73,6 +95,15 @@ export function filterSystem(rows: Row[], showAll: boolean): Row[] {
  * @param pid the selected process id, or `null` to fall back to `lastIdx`
  * @param lastIdx index held on the previous frame
  * @returns the index to select (`0` when `rows` is empty)
+ *
+ * @example The cursor follows the pid, not the slot
+ * ```ts
+ * import { sortRows, resolveSelection } from './view.ts'
+ *
+ * const rows = sortRows(collected, 'cpu') // pid 10 was at index 0 last frame
+ * resolveSelection(rows, 10, 0) // its new index — same process, new position
+ * resolveSelection(rows, -1, 3) // 3, clamped — that pid is gone, so hold the slot
+ * ```
  */
 export function resolveSelection(rows: Row[], pid: number | null, lastIdx: number): number {
   if (!rows.length) return 0
@@ -96,6 +127,7 @@ const pad = (s: string, w: number) => (s.length > w ? s.slice(0, w - 1) + '…' 
 /** Right-aligns `s` to width `w`, hard-truncating (no ellipsis) when it overflows. */
 const padL = (s: string, w: number) => (s.length > w ? s.slice(0, w) : s.padStart(w))
 
+/** Fixed cell widths in characters, for every column but the trailing command. */
 export const COLS = { port: 9, fw: 9, project: 16, pid: 7, cpu: 6, mem: 8, up: 7 }
 
 /**
@@ -147,6 +179,12 @@ export function formatLine(cells: string[], width: number): string {
   return line.length > width ? line.slice(0, Math.max(1, width - 1)) + '…' : line
 }
 
+/**
+ * Ink color for each framework name, used to tint the FRAMEWORK cell.
+ *
+ * Keys are exactly what `detectFramework` returns, `'—'` fallback included, so
+ * a lookup never misses for a row built by the collector.
+ */
 export const FW_COLOR: Record<string, string> = {
   'Next.js': 'white', SvelteKit: 'red', Vite: 'magenta', Nuxt: 'green', Astro: 'red',
   Gatsby: 'magenta', Angular: 'red', Storybook: 'magenta', Webpack: 'blue', Remix: 'cyan',

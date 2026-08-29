@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+/**
+ * The npm entry point: parses argv, then renders the Ink TUI.
+ *
+ * The desktop window is a separate program (`web-entry.ts`, compiled with bun)
+ * rather than a flag here, so this build never has to carry barlo or a Chrome.
+ *
+ * @module
+ */
 import React from 'react'
 import { render } from 'ink'
 import { openSync } from 'node:fs'

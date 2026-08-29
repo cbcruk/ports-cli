@@ -13,7 +13,11 @@
  *
  * Rows are rendered with DOM APIs rather than `innerHTML`, because a process
  * command line is attacker-influenced text that must never be parsed as markup.
+ *
+ * @module
  */
+
+/** The complete HTML document for the app window, embedded in the binary. */
 export const PAGE = /* html */ `<!doctype html>
 <html lang="en">
 <head>
