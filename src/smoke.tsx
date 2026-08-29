@@ -1,7 +1,7 @@
 import React from 'react'
 import { render } from 'ink'
 import { App } from './tui.tsx'
-import type { Row } from './core.ts'
+import type { Row } from './core.types.ts'
 
 const data: Row[] = [
   { port: 3000, ports: [3000], pid: 52341, command: '/usr/local/bin/node /p/web/node_modules/.bin/next dev', framework: 'Next.js', project: 'web', cpu: 82.4, memMB: 181, uptimeSecs: 19391 },

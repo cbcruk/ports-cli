@@ -123,14 +123,15 @@ list is types, barlo, and `tsc` for `typecheck`.
   - Processes listening *only* in the ephemeral range (≥ 49152) — workerd and Vite control sockets, never something you'd browse to.
 
   On a typical machine this is the difference between 54 rows and 4.
-- **Two front ends, one collector**: `core.ts` owns every subprocess and parser;
-  the TUI and the desktop app are both just views over it. The app runs one
+- **Two front ends, one collector**: `parsers.ts` and `collector.ts` own every
+  subprocess and parser; the TUI and the desktop app are both just views over
+  them. The app runs one
   collector for its one window and pushes each sweep into the page — a second
   collector would hand it a different (and wrong) CPU baseline, since the CPU
   column is a delta against the previous sample. Overlapping sweeps join the one
   already running rather than stacking, because `lsof` on a busy machine can
   outlast the interval. Rows reach the page with the raw numbers *and* the
-  strings formatted by `core.ts`/`view.ts` (`wire.ts`), so the page never
+  strings formatted by `formatters.ts`/`view.ts` (`wire.ts`), so the page never
   reimplements a formatter. In the noise filter's place it ships a `noise` flag
   per row, so the toggle is instant instead of a round trip.
 

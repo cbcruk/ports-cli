@@ -1,9 +1,6 @@
-import assert from 'node:assert'
+import type { Row } from './core.types.ts'
+import { ok, summary } from './test-assert.ts'
 import { toWire } from './wire.ts'
-import type { Row } from './core.ts'
-
-let pass = 0
-const ok = (n: string, c: boolean) => { assert(c, n); pass++ }
 
 const mk = (o: Partial<Row>): Row => {
   const r = {
@@ -13,7 +10,7 @@ const mk = (o: Partial<Row>): Row => {
   return { ...r, ports: o.ports ?? [r.port] }
 }
 
-// ── toWire ── (noise flag + display strings, so the page reuses core's formatters)
+// the noise flag and display strings are what let the page reuse the shared formatters
 const plain = toWire(mk({}))
 ok('wire keeps raw fields', plain.port === 3000 && plain.memMB === 180)
 ok('wire display ports', plain.display.ports === '3000')
@@ -26,4 +23,4 @@ ok('ephemeral-only is noise', toWire(mk({ port: 55725, ports: [55725, 57694] }))
 ok('multi-port display', toWire(mk({ port: 9229, ports: [9229, 55725, 55727] })).display.ports === '9229 +2')
 ok('null cpu display', toWire(mk({ cpu: null })).display.cpu === '·')
 
-console.log(`\n✓ ${pass} assertions passed`)
+summary()
