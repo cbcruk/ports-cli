@@ -6,7 +6,7 @@
  * ```tsx
  * import { render } from 'ink'
  * import { App } from './tui.tsx'
- * import type { Row } from './core.ts'
+ * import type { Row } from './core.types.ts'
  *
  * const rows: Row[] = []
  * render(<App collect={async () => rows} intervalMs={1000} />)
@@ -16,7 +16,9 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Text, useApp, useInput, useStdin } from 'ink'
-import { createCollector, killPid, fmtKill, openPort, type Row } from './core.ts'
+import { fmtKill, killPid, openPort } from './actions.ts'
+import { createCollector } from './collector.ts'
+import type { Row } from './core.types.ts'
 import { sortRows, filterRows, filterSystem, resolveSelection, rowCells, headerCells, SORT_KEYS, FW_COLOR, type SortKey } from './view.ts'
 
 /** Data source for the TUI: one snapshot of every localhost listener. */

@@ -7,7 +7,7 @@
  *
  * @example Build the visible rows for one frame
  * ```ts
- * import { createCollector } from './core.ts'
+ * import { createCollector } from './collector.ts'
  * import { filterSystem, sortRows, filterRows, rowCells, formatLine } from './view.ts'
  *
  * const rows = await createCollector().collect()
@@ -17,7 +17,9 @@
  *
  * @module
  */
-import { type Row, fmtUptime, fmtCpu, isSystemProcess, isEphemeralOnly } from './core.ts'
+import type { Row } from './core.types.ts'
+import { fmtCpu, fmtUptime } from './formatters.ts'
+import { isEphemeralOnly, isSystemProcess } from './parsers.ts'
 
 /** Column the list can be ordered by. */
 export type SortKey = 'port' | 'cpu' | 'mem' | 'uptime'

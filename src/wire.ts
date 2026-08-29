@@ -1,13 +1,13 @@
 /**
  * The row shape that crosses into the browser UI.
  *
- * Kept apart from `core.ts` (which owns the subprocesses) and from
+ * Kept apart from the collector (which owns the subprocesses) and from
  * `web-entry.ts` (which owns the window) so the shape can be unit-tested
  * without a Chrome anywhere in sight.
  *
  * @example Prepare a snapshot for the page
  * ```ts
- * import { createCollector } from './core.ts'
+ * import { createCollector } from './collector.ts'
  * import { toWire } from './wire.ts'
  *
  * const rows = (await createCollector().collect()).map(toWire)
@@ -15,13 +15,15 @@
  *
  * @module
  */
-import { fmtCpu, fmtUptime, isEphemeralOnly, isSystemProcess, type Row } from './core.ts'
+import type { Row } from './core.types.ts'
+import { fmtCpu, fmtUptime } from './formatters.ts'
+import { isEphemeralOnly, isSystemProcess } from './parsers.ts'
 import { fmtPorts } from './view.ts'
 
 /**
  * A row as handed to the page: the raw {@link Row} (so the client can sort on
  * real numbers) plus a `noise` flag and preformatted display strings, so the
- * page never has to reimplement the formatters in `core.ts`/`view.ts`.
+ * page never has to reimplement the formatters in `formatters.ts`/`view.ts`.
  */
 export type WireRow = Row & {
   /** `true` for a system/GUI or ephemeral-only listener, which the client hides by default. */

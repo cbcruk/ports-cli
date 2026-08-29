@@ -10,15 +10,12 @@
  * No `lsof` is involved: rows are fixtures pushed through `toWire`, so a runner
  * without dev servers listening still exercises the whole path.
  */
-import assert from 'node:assert'
 import type { Result } from 'better-result'
 import { launch } from 'barlo'
+import type { Row } from './core.types.ts'
+import { ok, summary } from './test-assert.ts'
 import { PAGE } from './web-page.ts'
 import { toWire } from './wire.ts'
-import type { Row } from './core.ts'
-
-let pass = 0
-const ok = (n: string, c: boolean) => { assert(c, n); pass++ }
 
 /** Unwraps a barlo Result, failing with the tagged error rather than a Panic. */
 function must<T, E>(result: Result<T, E>): T {
@@ -82,22 +79,20 @@ const text = async (sel: string) =>
   must(await app.evaluate<string>(`document.querySelector(${JSON.stringify(sel)}).textContent`))
 const count = async () => must(await app.evaluate<number>('document.querySelectorAll("#rows tr").length'))
 
-// ── the window itself ──
 ok('window is not headless', !must(await app.evaluate<string>('navigator.userAgent')).includes('Headless'))
 
-// ── the push from the runtime ──
+// the push from the runtime
 must(await app.evaluate((p: unknown) => (window as any).__ports(p), { rows }))
 ok('noise is hidden by default', (await count()) === 2)
 ok('count reflects what is shown', (await text('#count')) === '2 listening')
 ok('the empty notice is hidden', must(await app.evaluate<boolean>('document.getElementById("empty").hidden')))
 ok('rows carry preformatted display strings', (await text('#rows tr td.num')) === '52341')
 
-// ── the bridge survived the page ──
 // A classic script's top-level declarations land on `window`, over the bridge.
 // The page is wrapped so it declares nothing; barlo reports it if that changes.
 ok('no exposed name was shadowed', must(await win.shadowedFunctions()).length === 0)
 
-// ── filter ──
+// the filter runs in the page, with no round trip to the runtime
 must(await app.evaluate(`(() => {
   const f = document.getElementById('filter')
   f.value = 'vite'
@@ -112,7 +107,7 @@ must(await app.evaluate(`(() => {
   f.dispatchEvent(new Event('input'))
 })()`))
 
-// ── noise toggle ──
+// the noise toggle, likewise client-side
 must(await app.evaluate(`(() => {
   const a = document.getElementById('all')
   a.checked = true
@@ -120,12 +115,11 @@ must(await app.evaluate(`(() => {
 })()`))
 ok('the toggle reveals noise', (await count()) === 3)
 
-// ── port click reaches the runtime ──
+// a port click has to reach the runtime over the bridge
 must(await app.evaluate('document.querySelector("#rows tr a.port").click()'))
 await until('__openPort', () => called.openPort !== null)
 ok('clicking a port calls __openPort', called.openPort === 3000)
 
-// ── kill reaches the runtime ──
 // confirm() blocks the renderer on a real dialog, which would deadlock an
 // evaluate; the button wiring is what matters here, not Chrome's dialog.
 must(await app.evaluate('window.confirm = () => true'))
@@ -135,10 +129,10 @@ ok('force calls __kill with force set', called.kill?.pid === 52341 && called.kil
 await until('the status line', async () => (await text('#status')).includes('SIGKILL'))
 ok('the runtime message lands in the status line', (await text('#status')).includes('SIGKILL'))
 
-// ── the error path ──
+// the error path: a collector failure has to surface in the page
 must(await app.evaluate((p: unknown) => (window as any).__ports(p), { error: 'lsof not found' }))
 ok('a collector error reaches the status line', (await text('#status')) === 'lsof not found')
 
 app.exit()
-console.log(`\n✓ ${pass} assertions passed`)
+summary()
 process.exit(0)

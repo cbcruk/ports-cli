@@ -20,7 +20,8 @@
  * @module
  */
 import { launch } from 'barlo'
-import { createCollector, fmtKill, killPid, openPort } from './core.ts'
+import { fmtKill, killPid, openPort } from './actions.ts'
+import { createCollector } from './collector.ts'
 import { toWire, type WireRow } from './wire.ts'
 import { PAGE } from './web-page.ts'
 

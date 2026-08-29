@@ -1,15 +1,11 @@
-import assert from 'node:assert'
+import { ok, summary } from './test-assert.ts'
 import { PAGE } from './web-page.ts'
-
-let pass = 0
-const ok = (n: string, c: boolean) => { assert(c, n); pass++ }
 
 // Comment lines are dropped so prose about the bridge does not read as a use of
 // it. Only whole-line comments, so a `http://…` in a string survives.
 const script = PAGE.slice(PAGE.indexOf('<script>') + 8, PAGE.lastIndexOf('</script>'))
   .split('\n').filter((l) => !l.trimStart().startsWith('//')).join('\n')
 
-// ── bridge names ──
 // A classic script's top-level declarations become properties of `window`,
 // which is exactly where the runtime installs its bridge. An unwrapped
 // `function kill` once replaced `window.kill` with itself, so the kill button
@@ -23,7 +19,6 @@ ok('page uses the bridge', BRIDGE.every((n) => referenced.includes(n)))
 ok('every window.* reference is a bridge name', referenced.every((n) => BRIDGE.includes(n)))
 ok('no bare bridge names leak in', !/\b(?<!\.)__kill\s*\(/.test(script.replace(/window\.__kill/g, '')))
 
-// ── rendering ──
 // A process command line is attacker-influenced text and must never be parsed
 // as markup, so the page builds rows with DOM APIs only.
 ok('no innerHTML', !PAGE.includes('innerHTML'))
@@ -35,4 +30,4 @@ ok('no fetch', !script.includes('fetch('))
 ok('no EventSource', !script.includes('EventSource'))
 ok('no token in the page', !/\bt=|token/.test(script))
 
-console.log(`\n✓ ${pass} assertions passed`)
+summary()

@@ -1,9 +1,6 @@
-import assert from 'node:assert'
-import type { Row } from './core.ts'
+import type { Row } from './core.types.ts'
+import { ok, summary } from './test-assert.ts'
 import { sortRows, filterRows, filterSystem, fmtPorts, resolveSelection, rowCells, headerCells, formatLine, COLS } from './view.ts'
-
-let pass = 0
-const ok = (n: string, c: boolean) => { assert(c, n); pass++ }
 
 const mk = (o: Partial<Row>): Row => {
   const r = {
@@ -40,13 +37,12 @@ ok('header cols', headerCells()[0].startsWith('PORT'))
 // truncation with ellipsis
 ok('project truncates', rowCells(mk({ project: 'a-really-long-project-name' }))[2].endsWith('…'))
 
-// ── formatLine ── (GUI argv runs to thousands of chars; must not wrap the terminal)
+// a GUI app's argv runs to thousands of chars and must not wrap the terminal
 const long = formatLine(rowCells(mk({ command: 'x'.repeat(3000) })), 100)
 ok('line clamped to width', long.length === 100)
 ok('line marks truncation', long.endsWith('…'))
 ok('short line untouched', formatLine(['a', 'b'], 80) === 'a b')
 
-// ── filterSystem ──
 const sysRows = [
   mk({ port: 3000 }),
   mk({ port: 7000, command: '/Applications/Spotify.app/Contents/MacOS/Spotify' }),
@@ -55,13 +51,13 @@ const sysRows = [
 ok('system hidden by default', filterSystem(sysRows, false).map((r) => r.port).join() === '3000')
 ok('--all keeps everything', filterSystem(sysRows, true).length === 3)
 
-// ── fmtPorts ── (one row per pid, extra ports summarised)
+// one row per pid, with the extra ports summarised into the cell
 ok('single port plain', fmtPorts(mk({ port: 3000 })) === '3000')
 ok('multi port suffix', fmtPorts(mk({ port: 9229, ports: [9229, 55725, 55727] })) === '9229 +2')
 ok('port cell width', rowCells(mk({ port: 9229, ports: [9229, 1, 2] }))[0].length === COLS.port)
 ok('filter matches secondary port', filterRows([mk({ port: 9229, ports: [9229, 55725] })], '55725').length === 1)
 
-// ── resolveSelection ── (the bug: index-based cursor drifted onto another process)
+// the bug this guards: an index-based cursor drifted onto another process
 const a = mk({ port: 3000, pid: 10 })
 const b = mk({ port: 5173, pid: 20 })
 const c = mk({ port: 8000, pid: 30 })
@@ -78,4 +74,4 @@ ok('dead pid clamps to end', resolveSelection([a], 99, 5) === 0)
 ok('empty list is 0', resolveSelection([], 10, 3) === 0)
 ok('null pid uses lastIdx', resolveSelection([a, b, c], null, 2) === 2)
 
-console.log(`\n✓ ${pass} assertions passed`)
+summary()
